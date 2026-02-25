@@ -16,6 +16,8 @@ import {
 import { eq } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 
+type AbortReason = 'paused' | 'cancelled' | null;
+
 @Processor('downloads', { concurrency: 5 })
 export class DownloadProcessor extends WorkerHost {
   private readonly logger = new Logger(DownloadProcessor.name);
@@ -32,6 +34,27 @@ export class DownloadProcessor extends WorkerHost {
     }
   }
 
+  /**
+   * Polls DB to check if a download should be aborted.
+   * Returns 'paused', 'cancelled', or null (continue).
+   * Only one poll is active at a time per download via the isPolling guard.
+   */
+  private async checkAbortStatus(downloadId: string): Promise<AbortReason> {
+    try {
+      const [result] = await this.db
+        .select({ status: downloads.status })
+        .from(downloads)
+        .where(eq(downloads.id, downloadId));
+
+      if (result?.status === DownloadStatus.PAUSED) return 'paused';
+      if (result?.status === DownloadStatus.CANCELLED) return 'cancelled';
+      return null;
+    } catch (error) {
+      this.logger.warn(`Failed to poll status for ${downloadId}: ${error.message}`);
+      return null;
+    }
+  }
+
   async process(
     job: Job<{
       downloadId: string;
@@ -43,37 +66,40 @@ export class DownloadProcessor extends WorkerHost {
     }>,
   ) {
     const { downloadId, url, format, preferredName, resumeFrom, filePath: existingFilePath } = job.data;
-    const isResuming = resumeFrom && resumeFrom > 0 && existingFilePath;
+    const isResuming = !!(resumeFrom && resumeFrom > 0 && existingFilePath);
 
     this.logger.log(
-      `Processing download ${downloadId} for URL: ${url}${isResuming ? ` (resuming from ${resumeFrom}%)` : ''}`,
+      `Processing download ${downloadId}${isResuming ? ` (resuming from ${resumeFrom}%)` : ''}`,
     );
 
     try {
-      // Update status to processing
+      // Check immediately — might have been paused/cancelled while waiting in queue
+      const abortReason = await this.checkAbortStatus(downloadId);
+      if (abortReason) {
+        this.logger.log(`Download ${downloadId} is ${abortReason} before processing started — skipping`);
+        return;
+      }
+
+      // Mark as processing (keep existing progress so resume shows correct %)
       await this.db
         .update(downloads)
         .set({ status: DownloadStatus.PROCESSING })
         .where(eq(downloads.id, downloadId));
 
+      // Determine file path
       let filePath: string;
 
-      // If resuming, use the existing file path
       if (isResuming && existingFilePath && fs.existsSync(existingFilePath)) {
         filePath = existingFilePath;
-        this.logger.log(`Resuming download ${downloadId} from existing file: ${filePath}`);
+        this.logger.log(`Resuming ${downloadId} using existing file: ${filePath}`);
       } else {
-        // Generate new file path for fresh downloads
         const fileExtension = 'mp4';
         let fileName = preferredName
           ? `${preferredName}.${fileExtension}`
           : `${uuidv4()}.${fileExtension}`;
 
-        // Ensure filename is safe and unique if user provided one
         if (preferredName) {
-          // Simple sanitization
           fileName = fileName.replace(/[^a-z0-9.]/gi, '_');
-          // Check if file exists, if so append uuid
           if (fs.existsSync(path.join(this.DOWNLOAD_DIR, fileName))) {
             fileName = `${preferredName}_${uuidv4().substring(0, 8)}.${fileExtension}`;
           }
@@ -82,37 +108,36 @@ export class DownloadProcessor extends WorkerHost {
         filePath = path.join(this.DOWNLOAD_DIR, fileName);
       }
 
-      if (format === DownloadFormat.MP4) {
-        await this.downloadMp4(url, filePath, downloadId, isResuming ? resumeFrom : 0);
-      } else if (format === DownloadFormat.HLS) {
-        await this.downloadHls(url, filePath, downloadId, isResuming ? resumeFrom : 0);
-      }
-
-      // Bail out if the download was paused or cancelled while processing
-      const [current] = await this.db
-        .select({ status: downloads.status })
-        .from(downloads)
+      // Save filePath to DB immediately — required so pause/resume works correctly
+      await this.db
+        .update(downloads)
+        .set({ filePath, fileName: path.basename(filePath) })
         .where(eq(downloads.id, downloadId));
 
-      if (current?.status === DownloadStatus.PAUSED) {
-        this.logger.log(
-          `Download ${downloadId} was paused during processing — keeping partial file for resume`,
-        );
+      // Run the actual download
+      const stopReason = format === DownloadFormat.MP4
+        ? await this.downloadMp4(url, filePath, downloadId, isResuming ? (resumeFrom ?? 0) : 0)
+        : await this.downloadHls(url, filePath, downloadId, isResuming ? (resumeFrom ?? 0) : 0);
+
+      if (stopReason === 'paused') {
+        this.logger.log(`Download ${downloadId} paused — partial file kept for resume`);
         return;
       }
 
-      if (current?.status === DownloadStatus.CANCELLED) {
-        this.logger.log(
-          `Download ${downloadId} was cancelled during processing — skipping completion`,
-        );
-        // Clean up the file that was written
+      if (stopReason === 'cancelled') {
+        this.logger.log(`Download ${downloadId} cancelled — cleaning up file`);
         if (fs.existsSync(filePath)) {
           fs.unlinkSync(filePath);
         }
+        // Clear filePath from DB since file is gone
+        await this.db
+          .update(downloads)
+          .set({ filePath: null, fileName: null })
+          .where(eq(downloads.id, downloadId));
         return;
       }
 
-      // Update status to completed
+      // Completed successfully
       await this.db
         .update(downloads)
         .set({
@@ -123,105 +148,232 @@ export class DownloadProcessor extends WorkerHost {
         })
         .where(eq(downloads.id, downloadId));
 
-      this.logger.log(`Download ${downloadId} completed successfully.`);
+      this.logger.log(`Download ${downloadId} completed successfully`);
     } catch (error) {
+      // Final safety check — if paused/cancelled during an unexpected error, don't override status
+      const abortReason = await this.checkAbortStatus(downloadId);
+      if (abortReason) {
+        this.logger.log(`Download ${downloadId} error occurred but status is ${abortReason} — not marking as failed`);
+        return;
+      }
+
       this.logger.error(`Download ${downloadId} failed: ${error.message}`);
       await this.db
         .update(downloads)
-        .set({
-          status: DownloadStatus.FAILED,
-          error: error.message,
-        })
+        .set({ status: DownloadStatus.FAILED, error: error.message })
         .where(eq(downloads.id, downloadId));
       throw error;
     }
   }
 
+  /**
+   * Downloads an MP4 file, supporting byte-range resume.
+   * Returns 'paused', 'cancelled', or null (completed normally).
+   */
   private async downloadMp4(
     url: string,
     filePath: string,
     downloadId: string,
     resumeFrom: number = 0,
-  ): Promise<void> {
-    // For MP4 resume, we need to check if file exists and get its size
+  ): Promise<AbortReason> {
     let startByte = 0;
+    let totalFileSize = 0;
+
     if (resumeFrom > 0 && fs.existsSync(filePath)) {
-      const stats = fs.statSync(filePath);
-      startByte = stats.size;
-      this.logger.log(`Resuming MP4 download ${downloadId} from byte ${startByte}`);
+      startByte = fs.statSync(filePath).size;
+      this.logger.log(`MP4 resume: ${downloadId} from byte ${startByte} (${resumeFrom}%)`);
     }
 
-    const headers: Record<string, string> = {};
+    const requestHeaders: Record<string, string> = {};
     if (startByte > 0) {
-      headers['Range'] = `bytes=${startByte}-`;
+      requestHeaders['Range'] = `bytes=${startByte}-`;
     }
+
+    const abortController = new AbortController();
+    let abortReason: AbortReason = null;
+    let isPolling = false; // prevent concurrent DB polls
+
+    const triggerAbort = (reason: AbortReason) => {
+      abortReason = reason;
+      abortController.abort();
+    };
 
     const writer = fs.createWriteStream(filePath, { flags: startByte > 0 ? 'a' : 'w' });
-    const response = await firstValueFrom(
-      this.httpService.get(url, { responseType: 'stream', headers }),
-    );
 
-    const totalLength = response.headers['content-length'];
-    let downloadedLength = startByte;
+    let response: any;
+    try {
+      response = await firstValueFrom(
+        this.httpService.get(url, {
+          responseType: 'stream',
+          headers: requestHeaders,
+          signal: abortController.signal as any,
+        }),
+      );
+    } catch (error) {
+      writer.destroy();
+      if (abortReason) return abortReason;
+      throw error;
+    }
 
-    response.data.on('data', (chunk) => {
-      downloadedLength += chunk.length;
-      if (totalLength) {
-        const progress = Math.round((downloadedLength / (parseInt(totalLength) + startByte)) * 100);
-        this.updateProgress(downloadId, progress);
+    // Calculate total size correctly for range requests
+    const isRangeResponse = response.status === 206;
+    const contentLength = parseInt(response.headers['content-length'] || '0');
+
+    if (isRangeResponse && startByte > 0) {
+      totalFileSize = startByte + contentLength;
+    } else {
+      totalFileSize = contentLength;
+      if (startByte > 0 && !isRangeResponse) {
+        this.logger.warn(`Server rejected Range header for ${downloadId} — restarting from 0`);
+        startByte = 0;
+      }
+    }
+
+    let downloadedBytes = startByte;
+    let lastPauseCheckAt = Date.now();
+    let lastProgressValue = -1;
+
+    response.data.on('data', async (chunk: Buffer) => {
+      if (abortReason) return;
+
+      downloadedBytes += chunk.length;
+
+      // Poll DB every 2 seconds — only one poll at a time
+      const now = Date.now();
+      if (!isPolling && now - lastPauseCheckAt >= 2000) {
+        isPolling = true;
+        lastPauseCheckAt = now;
+
+        const reason = await this.checkAbortStatus(downloadId);
+        isPolling = false;
+
+        if (reason) {
+          triggerAbort(reason);
+          return;
+        }
+      }
+
+      if (totalFileSize > 0) {
+        const progress = Math.min(Math.round((downloadedBytes / totalFileSize) * 100), 99);
+        if (progress !== lastProgressValue) {
+          lastProgressValue = progress;
+          this.updateProgress(downloadId, progress);
+        }
       }
     });
 
     response.data.pipe(writer);
 
-    return new Promise((resolve, reject) => {
-      writer.on('finish', resolve);
-      writer.on('error', reject);
+    return new Promise<AbortReason>((resolve, reject) => {
+      writer.on('finish', () => resolve(abortReason));
+      writer.on('error', (err) => {
+        if (abortReason) {
+          resolve(abortReason);
+        } else {
+          reject(err);
+        }
+      });
+
+      abortController.signal.addEventListener('abort', () => {
+        // Flush writer then resolve — file is preserved for pause/resume
+        writer.end();
+      });
     });
   }
 
+  /**
+   * Downloads an HLS stream via FFmpeg.
+   * NOTE: FFmpeg cannot truly resume HLS. On resume, it restarts from 0
+   * but progress is offset by resumeFrom so the displayed % stays correct.
+   * Returns 'paused', 'cancelled', or null (completed normally).
+   */
   private async downloadHls(
     url: string,
     filePath: string,
     downloadId: string,
     resumeFrom: number = 0,
-  ): Promise<void> {
-    return new Promise((resolve, reject) => {
-      // For HLS, resume is tricky - we'll restart from beginning but skip progress updates until resume point
-      // A true resume would require parsing the manifest and downloading only remaining segments
-      let hasResumed = resumeFrom === 0;
+  ): Promise<AbortReason> {
+    // FFmpeg cannot resume HLS — delete partial file and start fresh
+    if (resumeFrom > 0 && fs.existsSync(filePath)) {
+      try {
+        fs.unlinkSync(filePath);
+        this.logger.log(`HLS resume: deleted partial file for ${downloadId}, restarting with offset progress`);
+      } catch (e) {
+        this.logger.warn(`Could not delete partial HLS file: ${(e as Error).message}`);
+      }
+    }
 
-      ffmpeg(url)
-        .on('progress', (progress) => {
-          if (progress.percent) {
-            // If we're resuming, we need to account for the already downloaded portion
-            const actualProgress = hasResumed
-              ? Math.round(progress.percent)
-              : Math.round((progress.percent * (100 - resumeFrom) / 100) + resumeFrom);
-            this.updateProgress(downloadId, actualProgress);
+    return new Promise<AbortReason>((resolve, reject) => {
+      let abortReason: AbortReason = null;
+      let ffmpegCommand: ffmpeg.FfmpegCommand | null = null;
+      let lastPauseCheckAt = Date.now();
+      let isPolling = false;
+      let lastProgressValue = -1;
+
+      const triggerAbort = (reason: AbortReason) => {
+        abortReason = reason;
+        ffmpegCommand?.kill('SIGTERM');
+      };
+
+      ffmpegCommand = ffmpeg(url)
+        .on('progress', async (progress) => {
+          if (abortReason) return;
+
+          // Poll DB every 2 seconds — one poll at a time
+          const now = Date.now();
+          if (!isPolling && now - lastPauseCheckAt >= 2000) {
+            isPolling = true;
+            lastPauseCheckAt = now;
+
+            const reason = await this.checkAbortStatus(downloadId);
+            isPolling = false;
+
+            if (reason) {
+              triggerAbort(reason);
+              return;
+            }
+          }
+
+          if (progress.percent != null) {
+            // Map FFmpeg's 0–100% into the remaining portion after resumeFrom
+            // e.g. resumeFrom=30, FFmpeg=50% → actual = 30 + (50 * 0.70) = 65%
+            const remaining = 100 - resumeFrom;
+            const actual = Math.min(
+              Math.round(resumeFrom + (progress.percent / 100) * remaining),
+              99,
+            );
+
+            if (actual !== lastProgressValue) {
+              lastProgressValue = actual;
+              this.updateProgress(downloadId, actual);
+            }
           }
         })
-        .on('end', () => {
-          resolve();
-        })
+        .on('end', () => resolve(null))
         .on('error', (err) => {
-          reject(err);
+          // SIGTERM from us — treat as graceful stop
+          if (
+            abortReason ||
+            err.message?.includes('SIGTERM') ||
+            err.message?.includes('Exiting normally')
+          ) {
+            resolve(abortReason ?? 'paused');
+          } else {
+            reject(err);
+          }
         })
         .save(filePath);
     });
   }
 
-  private async updateProgress(downloadId: string, progress: number) {
+  private async updateProgress(downloadId: string, progress: number): Promise<void> {
     try {
       await this.db
         .update(downloads)
-        .set({ progress })
+        .set({ progress, updatedAt: new Date() })
         .where(eq(downloads.id, downloadId));
     } catch (error) {
-      // Ignore progress update errors to avoid crashing the download
-      this.logger.warn(
-        `Failed to update progress for ${downloadId}: ${error.message}`,
-      );
+      this.logger.warn(`Progress update failed for ${downloadId}: ${(error as Error).message}`);
     }
   }
 }
