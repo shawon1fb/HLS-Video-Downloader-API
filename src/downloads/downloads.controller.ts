@@ -29,6 +29,13 @@ export class DownloadsController {
     return this.downloadsService.create(createDownloadDto);
   }
 
+  @Post('downloads/clear-queue')
+  @ApiOperation({ summary: 'Clear all jobs from the download queue' })
+  @ApiResponse({ status: 200, description: 'Queue cleared successfully.' })
+  clearQueue() {
+    return this.downloadsService.clearQueue();
+  }
+
   @Get('downloads/:id')
   @ApiOperation({ summary: 'Get download status' })
   @ApiResponse({ status: 200, description: 'Return download status.' })

@@ -62,6 +62,12 @@ export class DownloadsService {
     return download;
   }
 
+  async clearQueue() {
+    await this.downloadQueue.obliterate({ force: true });
+    this.logger.log('Queue cleared successfully');
+    return { message: 'Queue cleared successfully' };
+  }
+
   async findOne(id: string) {
     const [download] = await this.db
       .select()
