@@ -184,8 +184,7 @@ export class SwaggerConfig {
                 },
                 name: {
                   type: 'string',
-                  description:
-                    'Optional custom filename for the downloaded video',
+                  description: 'Optional custom filename for the downloaded video',
                   example: 'my-awesome-video',
                 },
               },
@@ -202,13 +201,7 @@ export class SwaggerConfig {
                   type: 'string',
                   description: 'Current status of the download',
                   example: 'pending',
-                  enum: [
-                    'pending',
-                    'downloading',
-                    'completed',
-                    'failed',
-                    'cancelled',
-                  ],
+                  enum: ['pending', 'downloading', 'completed', 'failed', 'cancelled'],
                 },
                 message: {
                   type: 'string',

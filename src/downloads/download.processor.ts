@@ -22,6 +22,8 @@ type AbortReason = 'paused' | 'cancelled' | null;
 export class DownloadProcessor extends WorkerHost {
   private readonly logger = new Logger(DownloadProcessor.name);
   private readonly DOWNLOAD_DIR = path.resolve(__dirname, '../../downloads');
+  private readonly INCOMPLETE_DIR = path.join(this.DOWNLOAD_DIR, 'incomplete');
+  private readonly COMPLETED_DIR = path.join(this.DOWNLOAD_DIR, 'completed');
 
   constructor(
     @Inject('DATABASE_CONNECTION')
@@ -29,9 +31,12 @@ export class DownloadProcessor extends WorkerHost {
     private readonly httpService: HttpService,
   ) {
     super();
-    if (!fs.existsSync(this.DOWNLOAD_DIR)) {
-      fs.mkdirSync(this.DOWNLOAD_DIR, { recursive: true });
-    }
+    // Create all required directories
+    [this.DOWNLOAD_DIR, this.INCOMPLETE_DIR, this.COMPLETED_DIR].forEach((dir) => {
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+    });
   }
 
   /**
@@ -86,7 +91,7 @@ export class DownloadProcessor extends WorkerHost {
         .set({ status: DownloadStatus.PROCESSING })
         .where(eq(downloads.id, downloadId));
 
-      // Determine file path
+      // Determine file path - save to incomplete folder during download
       let filePath: string;
 
       if (isResuming && existingFilePath && fs.existsSync(existingFilePath)) {
@@ -100,12 +105,16 @@ export class DownloadProcessor extends WorkerHost {
 
         if (preferredName) {
           fileName = fileName.replace(/[^a-z0-9.]/gi, '_');
-          if (fs.existsSync(path.join(this.DOWNLOAD_DIR, fileName))) {
+          // Check for duplicates in both directories
+          const incompletePath = path.join(this.INCOMPLETE_DIR, fileName);
+          const completedPath = path.join(this.COMPLETED_DIR, fileName);
+          if (fs.existsSync(incompletePath) || fs.existsSync(completedPath)) {
             fileName = `${preferredName}_${uuidv4().substring(0, 8)}.${fileExtension}`;
           }
         }
 
-        filePath = path.join(this.DOWNLOAD_DIR, fileName);
+        // Save to incomplete folder during download
+        filePath = path.join(this.INCOMPLETE_DIR, fileName);
       }
 
       // Save filePath to DB immediately — required so pause/resume works correctly
@@ -137,14 +146,26 @@ export class DownloadProcessor extends WorkerHost {
         return;
       }
 
+      // Move file from incomplete to completed folder
+      const fileName = path.basename(filePath);
+      const completedFilePath = path.join(this.COMPLETED_DIR, fileName);
+
+      try {
+        fs.renameSync(filePath, completedFilePath);
+        this.logger.log(`Moved ${downloadId} file to completed folder: ${completedFilePath}`);
+      } catch (moveError) {
+        this.logger.error(`Failed to move file to completed folder: ${(moveError as Error).message}`);
+        // Continue with original path if move fails
+      }
+
       // Completed successfully
       await this.db
         .update(downloads)
         .set({
           status: DownloadStatus.COMPLETED,
           progress: 100,
-          filePath,
-          fileName: path.basename(filePath),
+          filePath: completedFilePath,
+          fileName: fileName,
         })
         .where(eq(downloads.id, downloadId));
 

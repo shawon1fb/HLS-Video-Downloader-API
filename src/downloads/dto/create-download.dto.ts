@@ -10,14 +10,11 @@ export class CreateDownloadDto {
   })
   @IsString()
   @IsNotEmpty({ message: 'Video URL is required' })
-  @IsUrl(
-    {
-      require_protocol: true,
-      require_valid_protocol: true,
-      protocols: ['http', 'https'],
-    },
-    { message: 'Invalid video URL format' },
-  )
+  @IsUrl({
+    require_protocol: true,
+    require_valid_protocol: true,
+    protocols: ['http', 'https'],
+  }, { message: 'Invalid video URL format' })
   url: string;
 
   @ApiPropertyOptional({

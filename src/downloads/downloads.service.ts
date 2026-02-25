@@ -30,15 +30,20 @@ const JOB_OPTIONS = {
 export class DownloadsService {
   private readonly logger = new Logger(DownloadsService.name);
   private readonly DOWNLOAD_DIR = path.resolve(__dirname, '../../downloads');
+  private readonly INCOMPLETE_DIR = path.join(this.DOWNLOAD_DIR, 'incomplete');
+  private readonly COMPLETED_DIR = path.join(this.DOWNLOAD_DIR, 'completed');
 
   constructor(
     @Inject('DATABASE_CONNECTION')
     private readonly db: NodePgDatabase<typeof schema>,
     @InjectQueue('downloads') private downloadQueue: Queue,
   ) {
-    if (!fs.existsSync(this.DOWNLOAD_DIR)) {
-      fs.mkdirSync(this.DOWNLOAD_DIR, { recursive: true });
-    }
+    // Create all required directories
+    [this.DOWNLOAD_DIR, this.INCOMPLETE_DIR, this.COMPLETED_DIR].forEach((dir) => {
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+    });
   }
 
   async create(createDownloadDto: CreateDownloadDto) {
@@ -350,9 +355,19 @@ export class DownloadsService {
   }
 
   async getFilePath(filename: string): Promise<string> {
-    const filePath = path.join(this.DOWNLOAD_DIR, filename);
-    if (!fs.existsSync(filePath)) throw new NotFoundException('File not found');
-    return filePath;
+    // Check in completed folder first (most likely location for served files)
+    let filePath = path.join(this.COMPLETED_DIR, filename);
+    if (fs.existsSync(filePath)) {
+      return filePath;
+    }
+
+    // Check in incomplete folder (for paused downloads)
+    filePath = path.join(this.INCOMPLETE_DIR, filename);
+    if (fs.existsSync(filePath)) {
+      return filePath;
+    }
+
+    throw new NotFoundException('File not found');
   }
 
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
