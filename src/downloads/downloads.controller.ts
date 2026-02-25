@@ -12,7 +12,7 @@ import { DownloadsService } from './downloads.service';
 import { CreateDownloadDto } from './dto/create-download.dto';
 import { FastifyReply } from 'fastify';
 import * as fs from 'fs';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
 // import { ThrottlerGuard } from '@nestjs/throttler'; // Uncomment if ThrottlerModule is configured
 
 @ApiTags('Downloads')
@@ -23,6 +23,7 @@ export class DownloadsController {
 
   @Post('downloads')
   @ApiOperation({ summary: 'Start a new video download' })
+  @ApiBody({ type: CreateDownloadDto })
   @ApiResponse({ status: 201, description: 'Download started successfully.' })
   create(@Body() createDownloadDto: CreateDownloadDto) {
     return this.downloadsService.create(createDownloadDto);

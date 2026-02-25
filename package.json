@@ -30,9 +30,10 @@
     "seed:users": "ts-node src/seeders/user.seeder.ts"
   },
   "dependencies": {
-    "@bull-board/fastify": "^6.12.5",
-    "@bull-board/nestjs": "^6.12.5",
-    "@bull-board/ui": "^6.12.5",
+    "@bull-board/api": "^6.20.2",
+    "@bull-board/fastify": "6.20.2",
+    "@bull-board/nestjs": "6.20.2",
+    "@bull-board/ui": "6.20.2",
     "@faker-js/faker": "^10.0.0",
     "@fastify/compress": "^8.1.0",
     "@fastify/swagger": "^9.5.1",
