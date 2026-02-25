@@ -1,5 +1,5 @@
-import { IsString, IsNotEmpty, IsUrl } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { IsString, IsNotEmpty, IsUrl, IsOptional } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateDownloadDto {
   @ApiProperty({
@@ -15,4 +15,12 @@ export class CreateDownloadDto {
     protocols: ['http', 'https'],
   })
   url: string;
+
+  @ApiPropertyOptional({
+    description: 'Optional custom filename for the downloaded video',
+    example: 'my-awesome-video',
+  })
+  @IsOptional()
+  @IsString()
+  name?: string;
 }

@@ -33,7 +33,7 @@ export class DownloadsService {
   }
 
   async create(createDownloadDto: CreateDownloadDto) {
-    const { url } = createDownloadDto;
+    const { url, name } = createDownloadDto;
     
     // SSRF Check (Basic implementation)
     if (this.isPrivateIp(url)) {
@@ -60,6 +60,7 @@ export class DownloadsService {
         url,
         format,
         status: DownloadStatus.PENDING,
+        fileName: name, // Store initial preferred name if provided
       })
       .returning();
 
@@ -68,6 +69,7 @@ export class DownloadsService {
       downloadId: download.id,
       url: download.url,
       format: download.format,
+      preferredName: name,
     });
 
     return download;

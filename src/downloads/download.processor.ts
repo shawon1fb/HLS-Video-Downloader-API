@@ -28,8 +28,8 @@ export class DownloadProcessor extends WorkerHost {
     }
   }
 
-  async process(job: Job<{ downloadId: string; url: string; format: string }>) {
-    const { downloadId, url, format } = job.data;
+  async process(job: Job<{ downloadId: string; url: string; format: string; preferredName?: string }>) {
+    const { downloadId, url, format, preferredName } = job.data;
     this.logger.log(`Processing download ${downloadId} for URL: ${url}`);
 
     try {
@@ -39,8 +39,21 @@ export class DownloadProcessor extends WorkerHost {
         .set({ status: DownloadStatus.PROCESSING, progress: 0 })
         .where(eq(downloads.id, downloadId));
 
-      const fileExtension = format === DownloadFormat.HLS ? 'mp4' : 'mp4'; // HLS merged to mp4
-      const fileName = `${uuidv4()}.${fileExtension}`;
+      const fileExtension = 'mp4';
+      let fileName = preferredName 
+        ? `${preferredName}.${fileExtension}`
+        : `${uuidv4()}.${fileExtension}`;
+      
+      // Ensure filename is safe and unique if user provided one
+      if (preferredName) {
+        // Simple sanitization
+        fileName = fileName.replace(/[^a-z0-9.]/gi, '_');
+        // Check if file exists, if so append uuid
+        if (fs.existsSync(path.join(this.DOWNLOAD_DIR, fileName))) {
+           fileName = `${preferredName}_${uuidv4().substring(0, 8)}.${fileExtension}`;
+        }
+      }
+
       const filePath = path.join(this.DOWNLOAD_DIR, fileName);
 
       if (format === DownloadFormat.MP4) {
