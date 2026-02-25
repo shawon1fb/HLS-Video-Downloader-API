@@ -34,10 +34,12 @@ import { AppConfig } from './config/app.config';
     ScheduleModule.forRoot(),
     ThrottlerModule.forRootAsync({
       imports: [ConfigifyModule],
-      useFactory: (appConfig: AppConfig) => ([{
-        ttl: appConfig.rateLimitTtl * 1000,
-        limit: appConfig.rateLimitLimit,
-      }]),
+      useFactory: (appConfig: AppConfig) => [
+        {
+          ttl: appConfig.rateLimitTtl * 1000,
+          limit: appConfig.rateLimitLimit,
+        },
+      ],
       inject: [AppConfig],
     }),
     CacheModule.registerAsync({

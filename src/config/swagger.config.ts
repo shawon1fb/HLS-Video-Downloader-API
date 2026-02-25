@@ -171,6 +171,63 @@ export class SwaggerConfig {
                 },
               },
             },
+            // Download DTOs
+            CreateDownloadDto: {
+              type: 'object',
+              required: ['url'],
+              properties: {
+                url: {
+                  type: 'string',
+                  format: 'uri',
+                  description: 'The URL of the video to download (mp4 or m3u8)',
+                  example: 'https://example.com/video.mp4',
+                },
+                name: {
+                  type: 'string',
+                  description:
+                    'Optional custom filename for the downloaded video',
+                  example: 'my-awesome-video',
+                },
+              },
+            },
+            CreateDownloadResponseDto: {
+              type: 'object',
+              properties: {
+                id: {
+                  type: 'string',
+                  description: 'Unique identifier for the download job',
+                  example: '550e8400-e29b-41d4-a716-446655440000',
+                },
+                status: {
+                  type: 'string',
+                  description: 'Current status of the download',
+                  example: 'pending',
+                  enum: [
+                    'pending',
+                    'downloading',
+                    'completed',
+                    'failed',
+                    'cancelled',
+                  ],
+                },
+                message: {
+                  type: 'string',
+                  description: 'Success message',
+                  example: 'Download started successfully',
+                },
+                url: {
+                  type: 'string',
+                  description: 'The video URL being downloaded',
+                  example: 'https://example.com/video.mp4',
+                },
+                createdAt: {
+                  type: 'string',
+                  format: 'date-time',
+                  description: 'Timestamp when the download was created',
+                  example: '2024-01-01T12:00:00.000Z',
+                },
+              },
+            },
           },
         },
         security: [

@@ -12,7 +12,11 @@ import { eq, lt, inArray, desc, notInArray } from 'drizzle-orm';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import * as fs from 'fs';
 import * as path from 'path';
-import { downloads, DownloadStatus, DownloadFormat } from '../database/schema/downloads';
+import {
+  downloads,
+  DownloadStatus,
+  DownloadFormat,
+} from '../database/schema/downloads';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '../database/schema';
 import { v4 as uuidv4 } from 'uuid';
@@ -34,10 +38,12 @@ export class DownloadsService {
 
   async create(createDownloadDto: CreateDownloadDto) {
     const { url, name } = createDownloadDto;
-    
+
     // SSRF Check (Basic implementation)
     if (this.isPrivateIp(url)) {
-      throw new BadRequestException('Invalid URL: Private IP addresses are not allowed');
+      throw new BadRequestException(
+        'Invalid URL: Private IP addresses are not allowed',
+      );
     }
 
     // Check if download already exists
@@ -48,11 +54,19 @@ export class DownloadsService {
 
     if (existingDownload) {
       this.logger.log(`Download already exists for URL: ${url}`);
-      return existingDownload;
+      return {
+        id: existingDownload.id,
+        status: existingDownload.status,
+        message: 'Download already exists',
+        url: existingDownload.url,
+        createdAt: existingDownload.createdAt.toISOString(),
+      };
     }
 
-    const format = url.endsWith('.m3u8') ? DownloadFormat.HLS : DownloadFormat.MP4;
-    
+    const format = url.endsWith('.m3u8')
+      ? DownloadFormat.HLS
+      : DownloadFormat.MP4;
+
     // Save to DB
     const [download] = await this.db
       .insert(downloads)
@@ -72,7 +86,13 @@ export class DownloadsService {
       preferredName: name,
     });
 
-    return download;
+    return {
+      id: download.id,
+      status: download.status,
+      message: 'Download started successfully',
+      url: download.url,
+      createdAt: download.createdAt.toISOString(),
+    };
   }
 
   async clearQueue() {
@@ -140,10 +160,12 @@ export class DownloadsService {
           fs.unlinkSync(download.filePath);
           this.logger.log(`Deleted file: ${download.filePath}`);
         } catch (error) {
-          this.logger.error(`Failed to delete file ${download.filePath}: ${error.message}`);
+          this.logger.error(
+            `Failed to delete file ${download.filePath}: ${error.message}`,
+          );
         }
       }
-      
+
       // Optionally delete record or mark as expired
       // await this.db.delete(downloads).where(eq(downloads.id, download.id));
     }
@@ -153,7 +175,7 @@ export class DownloadsService {
     try {
       const urlObj = new URL(url);
       const hostname = urlObj.hostname;
-      
+
       // Basic check for localhost and private ranges
       // In production, use a library like 'ipaddr.js' or similar
       if (

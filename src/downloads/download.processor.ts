@@ -8,7 +8,11 @@ import * as ffmpeg from 'fluent-ffmpeg';
 import { firstValueFrom } from 'rxjs';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '../database/schema';
-import { downloads, DownloadStatus, DownloadFormat } from '../database/schema/downloads';
+import {
+  downloads,
+  DownloadStatus,
+  DownloadFormat,
+} from '../database/schema/downloads';
 import { eq } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -28,7 +32,14 @@ export class DownloadProcessor extends WorkerHost {
     }
   }
 
-  async process(job: Job<{ downloadId: string; url: string; format: string; preferredName?: string }>) {
+  async process(
+    job: Job<{
+      downloadId: string;
+      url: string;
+      format: string;
+      preferredName?: string;
+    }>,
+  ) {
     const { downloadId, url, format, preferredName } = job.data;
     this.logger.log(`Processing download ${downloadId} for URL: ${url}`);
 
@@ -40,17 +51,17 @@ export class DownloadProcessor extends WorkerHost {
         .where(eq(downloads.id, downloadId));
 
       const fileExtension = 'mp4';
-      let fileName = preferredName 
+      let fileName = preferredName
         ? `${preferredName}.${fileExtension}`
         : `${uuidv4()}.${fileExtension}`;
-      
+
       // Ensure filename is safe and unique if user provided one
       if (preferredName) {
         // Simple sanitization
         fileName = fileName.replace(/[^a-z0-9.]/gi, '_');
         // Check if file exists, if so append uuid
         if (fs.existsSync(path.join(this.DOWNLOAD_DIR, fileName))) {
-           fileName = `${preferredName}_${uuidv4().substring(0, 8)}.${fileExtension}`;
+          fileName = `${preferredName}_${uuidv4().substring(0, 8)}.${fileExtension}`;
         }
       }
 
@@ -87,7 +98,11 @@ export class DownloadProcessor extends WorkerHost {
     }
   }
 
-  private async downloadMp4(url: string, filePath: string, downloadId: string): Promise<void> {
+  private async downloadMp4(
+    url: string,
+    filePath: string,
+    downloadId: string,
+  ): Promise<void> {
     const writer = fs.createWriteStream(filePath);
     const response = await firstValueFrom(
       this.httpService.get(url, { responseType: 'stream' }),
@@ -112,7 +127,11 @@ export class DownloadProcessor extends WorkerHost {
     });
   }
 
-  private async downloadHls(url: string, filePath: string, downloadId: string): Promise<void> {
+  private async downloadHls(
+    url: string,
+    filePath: string,
+    downloadId: string,
+  ): Promise<void> {
     return new Promise((resolve, reject) => {
       ffmpeg(url)
         .on('progress', (progress) => {
@@ -138,7 +157,9 @@ export class DownloadProcessor extends WorkerHost {
         .where(eq(downloads.id, downloadId));
     } catch (error) {
       // Ignore progress update errors to avoid crashing the download
-      this.logger.warn(`Failed to update progress for ${downloadId}: ${error.message}`);
+      this.logger.warn(
+        `Failed to update progress for ${downloadId}: ${error.message}`,
+      );
     }
   }
 }
