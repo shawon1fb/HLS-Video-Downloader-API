@@ -73,6 +73,23 @@ export class DownloadProcessor extends WorkerHost {
         await this.downloadHls(url, filePath, downloadId);
       }
 
+      // Bail out if the download was cancelled while processing
+      const [current] = await this.db
+        .select({ status: downloads.status })
+        .from(downloads)
+        .where(eq(downloads.id, downloadId));
+
+      if (current?.status === DownloadStatus.CANCELLED) {
+        this.logger.log(
+          `Download ${downloadId} was cancelled during processing — skipping completion`,
+        );
+        // Clean up the file that was written
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+        return;
+      }
+
       // Update status to completed
       await this.db
         .update(downloads)

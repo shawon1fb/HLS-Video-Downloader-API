@@ -136,6 +136,106 @@ export class DownloadsService {
     return download;
   }
 
+  async cancelDownload(id: string) {
+    const download = await this.findOne(id);
+
+    if (download.status === DownloadStatus.COMPLETED) {
+      throw new BadRequestException('Cannot cancel a completed download');
+    }
+
+    if (download.status === DownloadStatus.CANCELLED) {
+      throw new BadRequestException('Download is already cancelled');
+    }
+
+    // Try to remove the job from BullMQ queue (covers pending, delayed, active)
+    try {
+      const jobs = await this.downloadQueue.getJobs([
+        'waiting',
+        'delayed',
+        'active',
+        'paused',
+      ]);
+      const job = jobs.find((j) => j.data.downloadId === id);
+      if (job) {
+        await job.remove();
+        this.logger.log(`Removed job for download ${id} from queue`);
+      }
+    } catch (err) {
+      // Non-fatal: log and continue — DB will be the source of truth
+      this.logger.warn(
+        `Could not remove job from queue for download ${id}: ${err.message}`,
+      );
+    }
+
+    // Mark as cancelled in DB
+    const [cancelled] = await this.db
+      .update(downloads)
+      .set({ status: DownloadStatus.CANCELLED, updatedAt: new Date() })
+      .where(eq(downloads.id, id))
+      .returning();
+
+    // Clean up any partial file left on disk
+    if (download.filePath && fs.existsSync(download.filePath)) {
+      try {
+        fs.unlinkSync(download.filePath);
+        this.logger.log(`Deleted partial file for cancelled download ${id}`);
+      } catch (err) {
+        this.logger.warn(
+          `Could not delete partial file for download ${id}: ${err.message}`,
+        );
+      }
+    }
+
+    return cancelled;
+  }
+
+  async deleteDownload(id: string) {
+    const download = await this.findOne(id);
+
+    // 1. Remove from queue if exists
+    try {
+      const jobs = await this.downloadQueue.getJobs([
+        'waiting',
+        'delayed',
+        'active',
+        'paused',
+        'completed',
+        'failed',
+      ]);
+      const job = jobs.find((j) => j.data.downloadId === id);
+      if (job) {
+        await job.remove();
+        this.logger.log(`Removed job for download ${id} from queue`);
+      }
+    } catch (err) {
+      this.logger.warn(
+        `Could not remove job from queue for download ${id}: ${err.message}`,
+      );
+    }
+
+    // 2. Delete file from disk if exists
+    if (download.filePath && fs.existsSync(download.filePath)) {
+      try {
+        fs.unlinkSync(download.filePath);
+        this.logger.log(`Deleted file for download ${id}: ${download.filePath}`);
+      } catch (err) {
+        this.logger.warn(
+          `Could not delete file for download ${id}: ${err.message}`,
+        );
+      }
+    }
+
+    // 3. Delete from database
+    await this.db.delete(downloads).where(eq(downloads.id, id));
+    this.logger.log(`Deleted download record ${id} from database`);
+
+    return {
+      id,
+      message: 'Download deleted successfully',
+      fileDeleted: !!download.filePath,
+    };
+  }
+
   async getFilePath(filename: string): Promise<string> {
     const filePath = path.join(this.DOWNLOAD_DIR, filename);
     if (!fs.existsSync(filePath)) {

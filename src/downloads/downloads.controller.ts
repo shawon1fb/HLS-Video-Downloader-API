@@ -2,15 +2,25 @@ import {
   Controller,
   Get,
   Post,
+  Delete,
   Body,
   Param,
   Res,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { DownloadsService } from './downloads.service';
 import { CreateDownloadDto } from './dto/create-download.dto';
+import { DeleteDownloadResponseDto } from './dto/delete-download-response.dto';
 import { FastifyReply } from 'fastify';
 import * as fs from 'fs';
-import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBody,
+  ApiParam,
+} from '@nestjs/swagger';
 import { ResponseMessage } from '../common/decorators/response-message.decorator';
 import { ApiResponseDto } from '../common/dto/api-response.dto';
 
@@ -64,6 +74,37 @@ export class DownloadsController {
   @ApiResponse({ status: 404, description: 'Download not found' })
   findOne(@Param('id') id: string) {
     return this.downloadsService.findOne(id);
+  }
+
+  @Post('downloads/:id/cancel')
+  @HttpCode(HttpStatus.OK)
+  @ResponseMessage('Download cancelled successfully')
+  @ApiOperation({
+    summary: 'Cancel a download',
+    description:
+      'Cancels a pending or processing download. Removes it from the queue, marks it as cancelled in the database, and cleans up any partial files on disk.',
+  })
+  @ApiParam({ name: 'id', description: 'Download ID', type: 'string' })
+  @ApiResponse({ status: 200, description: 'Download cancelled successfully.', type: ApiResponseDto })
+  @ApiResponse({ status: 400, description: 'Download is already completed or already cancelled' })
+  @ApiResponse({ status: 404, description: 'Download not found' })
+  cancelDownload(@Param('id') id: string) {
+    return this.downloadsService.cancelDownload(id);
+  }
+
+  @Delete('downloads/:id')
+  @HttpCode(HttpStatus.OK)
+  @ResponseMessage('Download deleted successfully')
+  @ApiOperation({
+    summary: 'Delete a download permanently',
+    description:
+      'Permanently deletes a download. Removes from queue, deletes from database, and deletes the file from disk.',
+  })
+  @ApiParam({ name: 'id', description: 'Download ID', type: 'string' })
+  @ApiResponse({ status: 200, description: 'Download deleted successfully.', type: DeleteDownloadResponseDto })
+  @ApiResponse({ status: 404, description: 'Download not found' })
+  deleteDownload(@Param('id') id: string) {
+    return this.downloadsService.deleteDownload(id);
   }
 
   @Get('files/:filename')

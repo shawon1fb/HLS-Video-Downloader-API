@@ -12,6 +12,7 @@ export enum DownloadStatus {
   PROCESSING = 'processing',
   COMPLETED = 'completed',
   FAILED = 'failed',
+  CANCELLED = 'cancelled',
 }
 
 export enum DownloadFormat {
