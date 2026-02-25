@@ -102,18 +102,41 @@ export class DownloadsService {
   }
 
   async getActiveDownloads() {
-    const activeStatuses = [DownloadStatus.PENDING, DownloadStatus.PROCESSING];
+    const activeStatuses = [
+      DownloadStatus.PENDING,
+      DownloadStatus.PROCESSING,
+      DownloadStatus.PAUSED,
+    ];
     const activeDownloads = await this.db
       .select()
       .from(downloads)
       .where(inArray(downloads.status, activeStatuses))
       .orderBy(desc(downloads.createdAt));
 
-    return activeDownloads;
+    return activeDownloads.map(download => ({
+      ...download,
+      canResume: download.status === DownloadStatus.PAUSED,
+      canRetry: [DownloadStatus.FAILED, DownloadStatus.PAUSED, DownloadStatus.CANCELLED].includes(download.status as DownloadStatus),
+      canPause: [DownloadStatus.PENDING, DownloadStatus.PROCESSING].includes(download.status as DownloadStatus),
+    }));
+  }
+
+  async getPausedDownloads() {
+    const pausedDownloads = await this.db
+      .select()
+      .from(downloads)
+      .where(eq(downloads.status, DownloadStatus.PAUSED))
+      .orderBy(desc(downloads.createdAt));
+
+    return pausedDownloads.map(download => ({
+      ...download,
+      canResume: true,
+      canRetry: true,
+    }));
   }
 
   async getActiveDownloadsWithProgress(downloadIds?: string[] | null) {
-    const activeStatuses = [DownloadStatus.PENDING, DownloadStatus.PROCESSING];
+    const activeStatuses = [DownloadStatus.PENDING, DownloadStatus.PROCESSING, DownloadStatus.PAUSED];
 
     const whereConditions: any[] = [inArray(downloads.status, activeStatuses)];
 
@@ -129,6 +152,7 @@ export class DownloadsService {
         progress: downloads.progress,
         format: downloads.format,
         fileName: downloads.fileName,
+        filePath: downloads.filePath,
         createdAt: downloads.createdAt,
         updatedAt: downloads.updatedAt,
       })
@@ -145,6 +169,9 @@ export class DownloadsService {
         ...download,
         queuePosition: job ? jobs.indexOf(job) + 1 : null,
         estimatedTimeRemaining: this.estimateTimeRemaining(download),
+        canResume: download.status === DownloadStatus.PAUSED,
+        canRetry: [DownloadStatus.FAILED, DownloadStatus.PAUSED, DownloadStatus.CANCELLED].includes(download.status as DownloadStatus),
+        canPause: [DownloadStatus.PENDING, DownloadStatus.PROCESSING].includes(download.status as DownloadStatus),
       };
     });
   }
@@ -185,6 +212,149 @@ export class DownloadsService {
     }
 
     return download;
+  }
+
+  async pauseDownload(id: string) {
+    const download = await this.findOne(id);
+
+    if (download.status === DownloadStatus.COMPLETED) {
+      throw new BadRequestException('Cannot pause a completed download');
+    }
+
+    if (download.status === DownloadStatus.PAUSED) {
+      throw new BadRequestException('Download is already paused');
+    }
+
+    if (download.status === DownloadStatus.CANCELLED) {
+      throw new BadRequestException('Cannot pause a cancelled download');
+    }
+
+    // Try to remove the job from BullMQ queue (covers pending, delayed, active)
+    try {
+      const jobs = await this.downloadQueue.getJobs([
+        'waiting',
+        'delayed',
+        'active',
+        'paused',
+      ]);
+      const job = jobs.find((j) => j.data.downloadId === id);
+      if (job) {
+        await job.remove();
+        this.logger.log(`Removed job for download ${id} from queue`);
+      }
+    } catch (err) {
+      // Non-fatal: log and continue — DB will be the source of truth
+      this.logger.warn(
+        `Could not remove job from queue for download ${id}: ${err.message}`,
+      );
+    }
+
+    // Mark as paused in DB - keeping partial files and progress
+    const [paused] = await this.db
+      .update(downloads)
+      .set({ status: DownloadStatus.PAUSED, updatedAt: new Date() })
+      .where(eq(downloads.id, id))
+      .returning();
+
+    this.logger.log(`Download ${id} paused at ${paused.progress}% progress`);
+
+    return {
+      ...paused,
+      message: 'Download paused successfully. You can resume or retry later.',
+      canResume: true,
+      canRetry: true,
+    };
+  }
+
+  async resumeDownload(id: string) {
+    const download = await this.findOne(id);
+
+    if (download.status !== DownloadStatus.PAUSED) {
+      throw new BadRequestException('Only paused downloads can be resumed');
+    }
+
+    // Update status back to pending and add to queue
+    const [resumed] = await this.db
+      .update(downloads)
+      .set({ status: DownloadStatus.PENDING, updatedAt: new Date() })
+      .where(eq(downloads.id, id))
+      .returning();
+
+    // Add back to Queue with resume flag
+    await this.downloadQueue.add('process-download', {
+      downloadId: download.id,
+      url: download.url,
+      format: download.format,
+      preferredName: download.fileName?.replace(/\.mp4$/, ''),
+      resumeFrom: download.progress,
+      filePath: download.filePath,
+    });
+
+    this.logger.log(`Download ${id} resumed from ${download.progress}%`);
+
+    return {
+      ...resumed,
+      status: DownloadStatus.PENDING,
+      message: 'Download resumed successfully',
+    };
+  }
+
+  async retryDownload(id: string) {
+    const download = await this.findOne(id);
+
+    // Can retry failed, paused, or cancelled downloads
+    const retryableStatuses = [
+      DownloadStatus.FAILED,
+      DownloadStatus.PAUSED,
+      DownloadStatus.CANCELLED,
+    ];
+
+    if (!retryableStatuses.includes(download.status as DownloadStatus)) {
+      throw new BadRequestException(
+        `Cannot retry a download with status: ${download.status}. Only failed, paused, or cancelled downloads can be retried.`,
+      );
+    }
+
+    // Clean up old partial file if exists (fresh start)
+    if (download.filePath && fs.existsSync(download.filePath)) {
+      try {
+        fs.unlinkSync(download.filePath);
+        this.logger.log(`Deleted old partial file for retry ${id}`);
+      } catch (err) {
+        this.logger.warn(
+          `Could not delete old file for download ${id}: ${err.message}`,
+        );
+      }
+    }
+
+    // Reset progress and status
+    const [retried] = await this.db
+      .update(downloads)
+      .set({
+        status: DownloadStatus.PENDING,
+        progress: 0,
+        error: null,
+        filePath: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(downloads.id, id))
+      .returning();
+
+    // Add to Queue
+    await this.downloadQueue.add('process-download', {
+      downloadId: download.id,
+      url: download.url,
+      format: download.format,
+      preferredName: download.fileName?.replace(/\.mp4$/, ''),
+    });
+
+    this.logger.log(`Download ${id} retried (fresh start)`);
+
+    return {
+      ...retried,
+      status: DownloadStatus.PENDING,
+      message: 'Download retried successfully (fresh start)',
+    };
   }
 
   async cancelDownload(id: string) {
@@ -237,7 +407,11 @@ export class DownloadsService {
       }
     }
 
-    return cancelled;
+    return {
+      ...cancelled,
+      message: 'Download cancelled successfully',
+      canRetry: true,
+    };
   }
 
   async deleteDownload(id: string) {

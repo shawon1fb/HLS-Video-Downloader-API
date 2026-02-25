@@ -80,13 +80,72 @@ export class DownloadsController {
     return this.downloadsService.findOne(id);
   }
 
+  @Get('downloads/paused')
+  @ResponseMessage('Paused downloads retrieved successfully')
+  @ApiOperation({
+    summary: 'Get all paused downloads',
+    description: 'Returns all downloads that are in PAUSED state with resume/retry options available.',
+  })
+  @ApiResponse({ status: 200, description: 'Return list of paused downloads.', type: ApiResponseDto })
+  getPausedDownloads() {
+    return this.downloadsService.getPausedDownloads();
+  }
+
+  @Post('downloads/:id/pause')
+  @HttpCode(HttpStatus.OK)
+  @ResponseMessage('Download paused successfully')
+  @ApiOperation({
+    summary: 'Pause a download',
+    description:
+      'Pauses a pending or processing download. Removes it from the queue, marks it as paused in the database, but keeps partial files on disk for resuming later. You can resume or retry a paused download.',
+  })
+  @ApiParam({ name: 'id', description: 'Download ID', type: 'string' })
+  @ApiResponse({ status: 200, description: 'Download paused successfully.', type: ApiResponseDto })
+  @ApiResponse({ status: 400, description: 'Download is already completed, paused, or cancelled' })
+  @ApiResponse({ status: 404, description: 'Download not found' })
+  pauseDownload(@Param('id') id: string) {
+    return this.downloadsService.pauseDownload(id);
+  }
+
+  @Post('downloads/:id/resume')
+  @HttpCode(HttpStatus.OK)
+  @ResponseMessage('Download resumed successfully')
+  @ApiOperation({
+    summary: 'Resume a paused download',
+    description:
+      'Resumes a paused download from where it left off. The download will continue from its previous progress.',
+  })
+  @ApiParam({ name: 'id', description: 'Download ID', type: 'string' })
+  @ApiResponse({ status: 200, description: 'Download resumed successfully.', type: ApiResponseDto })
+  @ApiResponse({ status: 400, description: 'Only paused downloads can be resumed' })
+  @ApiResponse({ status: 404, description: 'Download not found' })
+  resumeDownload(@Param('id') id: string) {
+    return this.downloadsService.resumeDownload(id);
+  }
+
+  @Post('downloads/:id/retry')
+  @HttpCode(HttpStatus.OK)
+  @ResponseMessage('Download retried successfully')
+  @ApiOperation({
+    summary: 'Retry a failed, paused, or cancelled download',
+    description:
+      'Retries a download from the beginning. This will delete any partial files and start fresh. Works for failed, paused, or cancelled downloads.',
+  })
+  @ApiParam({ name: 'id', description: 'Download ID', type: 'string' })
+  @ApiResponse({ status: 200, description: 'Download retried successfully.', type: ApiResponseDto })
+  @ApiResponse({ status: 400, description: 'Cannot retry - download must be failed, paused, or cancelled' })
+  @ApiResponse({ status: 404, description: 'Download not found' })
+  retryDownload(@Param('id') id: string) {
+    return this.downloadsService.retryDownload(id);
+  }
+
   @Post('downloads/:id/cancel')
   @HttpCode(HttpStatus.OK)
   @ResponseMessage('Download cancelled successfully')
   @ApiOperation({
-    summary: 'Cancel a download',
+    summary: 'Cancel a download permanently',
     description:
-      'Cancels a pending or processing download. Removes it from the queue, marks it as cancelled in the database, and cleans up any partial files on disk.',
+      'Cancels a pending or processing download. Removes it from the queue, marks it as cancelled in the database, and deletes any partial files on disk. Use pause if you want to resume later.',
   })
   @ApiParam({ name: 'id', description: 'Download ID', type: 'string' })
   @ApiResponse({ status: 200, description: 'Download cancelled successfully.', type: ApiResponseDto })
