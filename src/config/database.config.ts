@@ -12,15 +12,15 @@ export class DatabaseConfig {
   port: number;
 
   @IsNotEmpty()
-  @Value('DB_NAME', { default: 'sports_admin' })
+  @Value('DB_NAME', { default: 'video_downloader_db' })
   database: string;
 
   @IsNotEmpty()
-  @Value('DB_USER', { default: 'sports_user' })
+  @Value('DB_USER', { default: 'video_downloader_user' })
   username: string;
 
   @IsNotEmpty()
-  @Value('DB_PASSWORD', { default: 'sports_password_2024' })
+  @Value('DB_PASSWORD', { default: 'video_downloader_password_2026' })
   password: string;
 
   @IsOptional()

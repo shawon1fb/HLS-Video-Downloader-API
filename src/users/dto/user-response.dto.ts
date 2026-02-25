@@ -3,109 +3,109 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { UserRole } from './create-user.dto';
 
 export class UserResponseDto {
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Unique user identifier',
     example: '550e8400-e29b-41d4-a716-446655440000',
-    format: 'uuid'
+    format: 'uuid',
   })
   @Expose()
   id: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'User email address',
     example: 'john.doe@example.com',
-    format: 'email'
+    format: 'email',
   })
   @Expose()
   email: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Unique username',
-    example: 'johndoe'
+    example: 'johndoe',
   })
   @Expose()
   username: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'User first name',
-    example: 'John'
+    example: 'John',
   })
   @Expose()
   firstName: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'User last name',
-    example: 'Doe'
+    example: 'Doe',
   })
   @Expose()
   lastName: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'User full name (computed from first and last name)',
-    example: 'John Doe'
+    example: 'John Doe',
   })
   @Expose()
   @Transform(({ obj }) => `${obj.firstName} ${obj.lastName}`)
   fullName: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'User role',
     enum: UserRole,
-    example: UserRole.USER
+    example: UserRole.USER,
   })
   @Expose()
   role: UserRole;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'URL to user profile picture',
     example: 'https://example.com/avatars/johndoe.jpg',
-    nullable: true
+    nullable: true,
   })
   @Expose()
   profilePicture?: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Whether the user account is active',
-    example: true
+    example: true,
   })
   @Expose()
   isActive: boolean;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Whether the user email is verified',
-    example: false
+    example: false,
   })
   @Expose()
   isEmailVerified: boolean;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Whether two-factor authentication is enabled',
-    example: false
+    example: false,
   })
   @Expose()
   isTwoFactorEnabled: boolean;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Date when the user last logged in',
     example: '2023-12-01T09:15:00.000Z',
     format: 'date-time',
-    nullable: true
+    nullable: true,
   })
   @Expose()
   lastLoginAt?: Date;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Date when the user account was created',
     example: '2023-01-15T10:30:00.000Z',
-    format: 'date-time'
+    format: 'date-time',
   })
   @Expose()
   createdAt: Date;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Date when the user account was last updated',
     example: '2023-06-20T14:45:00.000Z',
-    format: 'date-time'
+    format: 'date-time',
   })
   @Expose()
   updatedAt: Date;

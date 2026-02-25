@@ -41,8 +41,6 @@ export const users = pgTable('users', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
-
-
 // Export all schemas
 export const schema = {
   users,

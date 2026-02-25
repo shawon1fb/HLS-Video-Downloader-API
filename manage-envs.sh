@@ -69,9 +69,9 @@ db_operations() {
             echo "Setting production database environment variables..."
             export DB_HOST=localhost
             export DB_PORT=5432
-            export DB_USER=sports_user
-            export DB_PASSWORD=sports_password_2024
-            export DB_NAME=sports_admin
+            export DB_USER=video_downloader_user
+            export DB_PASSWORD=video_downloader_password_2026
+            export DB_NAME=video_downloader_db
             yarn drizzle-kit push:pg
             ;;
         "seed")
@@ -81,7 +81,7 @@ db_operations() {
             ;;
         "reset")
             echo "Resetting database for production environment..."
-            docker compose exec postgres psql -U sports_user -d sports_admin -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+            docker compose exec postgres psql -U video_downloader_user -d video_downloader_db -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
             db_operations migrate
             ;;
         *)

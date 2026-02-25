@@ -9,7 +9,10 @@ import {
 import { Reflector } from '@nestjs/core';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
-import { RATE_LIMIT_KEY, RateLimitOptions } from '../decorators/rate-limit.decorator';
+import {
+  RATE_LIMIT_KEY,
+  RateLimitOptions,
+} from '../decorators/rate-limit.decorator';
 
 @Injectable()
 export class RateLimitGuard implements CanActivate {
@@ -30,12 +33,12 @@ export class RateLimitGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest();
     const key = this.generateKey(request, context);
-    
+
     const { ttl, limit } = rateLimitOptions;
-    
+
     // Get current count from cache
-    const current = await this.cacheManager.get<number>(key) || 0;
-    
+    const current = (await this.cacheManager.get<number>(key)) || 0;
+
     if (current >= limit) {
       throw new HttpException(
         {
@@ -50,7 +53,7 @@ export class RateLimitGuard implements CanActivate {
 
     // Increment counter
     await this.cacheManager.set(key, current + 1, ttl * 1000);
-    
+
     return true;
   }
 
@@ -58,15 +61,16 @@ export class RateLimitGuard implements CanActivate {
     const ip = this.getClientIp(request);
     const route = context.getHandler().name;
     const controller = context.getClass().name;
-    
+
     // Include API key if present for API-specific rate limiting
-    const apiKey = request.headers['x-api-key'] || 
-                   (request.headers.authorization?.startsWith('Bearer ') 
-                     ? request.headers.authorization.substring(7) 
-                     : '');
-    
+    const apiKey =
+      request.headers['x-api-key'] ||
+      (request.headers.authorization?.startsWith('Bearer ')
+        ? request.headers.authorization.substring(7)
+        : '');
+
     const identifier = apiKey || ip;
-    
+
     return `rate_limit:${controller}:${route}:${identifier}`;
   }
 

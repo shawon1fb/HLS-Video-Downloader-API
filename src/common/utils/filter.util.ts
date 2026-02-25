@@ -115,7 +115,7 @@ export class FilterUtil {
       isActive: 'is_active',
       isEmailVerified: 'is_email_verified',
       isTwoFactorEnabled: 'is_two_factor_enabled',
-      
+
       profilePicture: 'profile_picture',
       lastLoginAt: 'last_login_at',
       createdAt: 'created_at',

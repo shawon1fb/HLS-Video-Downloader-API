@@ -47,8 +47,6 @@ export class DatabaseService {
     await this.db.delete(users).where(eq(users.id, id));
   }
 
-
-
   // Health check
   async healthCheck() {
     try {

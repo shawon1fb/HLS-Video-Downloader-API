@@ -33,16 +33,23 @@ export class SeederConfig {
 
   // Safety check to prevent running in production
   isProductionEnvironment(): boolean {
-    return this.environment?.toLowerCase()?.includes('prod') || 
-           this.environment?.toLowerCase()?.includes('production') || false;
+    return (
+      this.environment?.toLowerCase()?.includes('prod') ||
+      this.environment?.toLowerCase()?.includes('production') ||
+      false
+    );
   }
 
   // Get user roles distribution (percentages)
-  getUserRoleDistribution(): { admin: number; moderator: number; user: number } {
+  getUserRoleDistribution(): {
+    admin: number;
+    moderator: number;
+    user: number;
+  } {
     return {
-      admin: 0.05,     // 5% admins
+      admin: 0.05, // 5% admins
       moderator: 0.15, // 15% moderators
-      user: 0.80       // 80% regular users
+      user: 0.8, // 80% regular users
     };
   }
 }

@@ -1,4 +1,10 @@
-import { Module, OnModuleInit, Inject, MiddlewareConsumer, NestModule } from '@nestjs/common';
+import {
+  Module,
+  OnModuleInit,
+  Inject,
+  MiddlewareConsumer,
+  NestModule,
+} from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { createKeyv } from '@keyv/redis';
@@ -13,7 +19,10 @@ import { RedisConfig } from './config/redis.config';
 import { DatabaseModule } from './database/database.module';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
-import { SanitizationMiddleware, SecurityHeadersMiddleware } from './common/middleware';
+import {
+  SanitizationMiddleware,
+  SecurityHeadersMiddleware,
+} from './common/middleware';
 
 @Module({
   imports: [

@@ -28,7 +28,7 @@ export class SanitizationMiddleware implements NestMiddleware {
     }
 
     if (Array.isArray(obj)) {
-      return obj.map(item => this.sanitizeObject(item));
+      return obj.map((item) => this.sanitizeObject(item));
     }
 
     if (typeof obj === 'object') {
@@ -53,18 +53,20 @@ export class SanitizationMiddleware implements NestMiddleware {
     }
 
     // Remove potentially dangerous characters and patterns
-    return str
-      // Remove script tags
-      .replace(/<script[^>]*>.*?<\/script>/gi, '')
-      // Remove javascript: protocol
-      .replace(/javascript:/gi, '')
-      // Remove on* event handlers
-      .replace(/\s*on\w+\s*=/gi, '')
-      // Remove HTML tags (basic sanitization)
-      .replace(/<[^>]*>/g, '')
-      // Remove SQL injection patterns
-      .replace(/('|(\-\-)|(;)|(\||\|)|(\*|\*))/g, '')
-      // Trim whitespace
-      .trim();
+    return (
+      str
+        // Remove script tags
+        .replace(/<script[^>]*>.*?<\/script>/gi, '')
+        // Remove javascript: protocol
+        .replace(/javascript:/gi, '')
+        // Remove on* event handlers
+        .replace(/\s*on\w+\s*=/gi, '')
+        // Remove HTML tags (basic sanitization)
+        .replace(/<[^>]*>/g, '')
+        // Remove SQL injection patterns
+        .replace(/('|(\-\-)|(;)|(\||\|)|(\*|\*))/g, '')
+        // Trim whitespace
+        .trim()
+    );
   }
 }

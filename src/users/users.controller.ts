@@ -46,22 +46,22 @@ export class UsersController {
   @Post()
   @Public() // Allow public registration
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Create a new user',
-    description: 'Creates a new user account. Public registration allowed.'
+    description: 'Creates a new user account. Public registration allowed.',
   })
-  @ApiResponse({ 
-    status: 201, 
+  @ApiResponse({
+    status: 201,
     description: 'User created successfully',
-    type: UserResponseDto
+    type: UserResponseDto,
   })
-  @ApiResponse({ 
-    status: 400, 
-    description: 'Invalid input data or validation errors'
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid input data or validation errors',
   })
-  @ApiResponse({ 
-    status: 409, 
-    description: 'User already exists with this email or username'
+  @ApiResponse({
+    status: 409,
+    description: 'User already exists with this email or username',
   })
   async create(
     @Body(new ValidationPipe({ transform: true, whitelist: true }))
@@ -72,29 +72,63 @@ export class UsersController {
 
   @Get()
   @Roles(UserRole.ADMIN, UserRole.MODERATOR)
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Get all users',
-    description: 'Retrieves a paginated list of users with optional filtering and sorting. Admin or Moderator access required.'
+    description:
+      'Retrieves a paginated list of users with optional filtering and sorting. Admin or Moderator access required.',
   })
-  @ApiQuery({ name: 'search', required: false, description: 'Search term for filtering users' })
-  @ApiQuery({ name: 'role', required: false, enum: UserRole, description: 'Filter by user role' })
-  @ApiQuery({ name: 'isActive', required: false, type: Boolean, description: 'Filter by active status' })
-  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (default: 1)' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page (default: 10, max: 100)' })
-  @ApiQuery({ name: 'sortBy', required: false, description: 'Sort field (default: createdAt)' })
-  @ApiQuery({ name: 'sortOrder', required: false, enum: ['asc', 'desc'], description: 'Sort order (default: desc)' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    description: 'Search term for filtering users',
+  })
+  @ApiQuery({
+    name: 'role',
+    required: false,
+    enum: UserRole,
+    description: 'Filter by user role',
+  })
+  @ApiQuery({
+    name: 'isActive',
+    required: false,
+    type: Boolean,
+    description: 'Filter by active status',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number (default: 1)',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page (default: 10, max: 100)',
+  })
+  @ApiQuery({
+    name: 'sortBy',
+    required: false,
+    description: 'Sort field (default: createdAt)',
+  })
+  @ApiQuery({
+    name: 'sortOrder',
+    required: false,
+    enum: ['asc', 'desc'],
+    description: 'Sort order (default: desc)',
+  })
+  @ApiResponse({
+    status: 200,
     description: 'Users retrieved successfully',
-    type: PaginatedUserResponseDto
+    type: PaginatedUserResponseDto,
   })
-  @ApiResponse({ 
-    status: 401, 
-    description: 'Unauthorized - Invalid or missing authentication'
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Invalid or missing authentication',
   })
-  @ApiResponse({ 
-    status: 403, 
-    description: 'Forbidden - Admin or Moderator access required'
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Admin or Moderator access required',
   })
   async findAll(
     @Query(new ValidationPipe({ transform: true, whitelist: true }))
@@ -104,18 +138,19 @@ export class UsersController {
   }
 
   @Get('profile')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Get current user profile',
-    description: 'Retrieves the profile information of the currently authenticated user.'
+    description:
+      'Retrieves the profile information of the currently authenticated user.',
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Profile retrieved successfully',
-    type: UserResponseDto
+    type: UserResponseDto,
   })
-  @ApiResponse({ 
-    status: 401, 
-    description: 'Unauthorized - Invalid or missing authentication'
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Invalid or missing authentication',
   })
   async getProfile(
     @CurrentUser() user: UserResponseDto,
@@ -125,27 +160,28 @@ export class UsersController {
 
   @Get(':id')
   @Roles(UserRole.ADMIN, UserRole.MODERATOR)
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Get user by ID',
-    description: 'Retrieves a specific user by their unique identifier. Admin or Moderator access required.'
+    description:
+      'Retrieves a specific user by their unique identifier. Admin or Moderator access required.',
   })
   @ApiParam({ name: 'id', description: 'User UUID', type: 'string' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'User retrieved successfully',
-    type: UserResponseDto
+    type: UserResponseDto,
   })
-  @ApiResponse({ 
-    status: 401, 
-    description: 'Unauthorized - Invalid or missing authentication'
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Invalid or missing authentication',
   })
-  @ApiResponse({ 
-    status: 403, 
-    description: 'Forbidden - Admin or Moderator access required'
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Admin or Moderator access required',
   })
-  @ApiResponse({ 
-    status: 404, 
-    description: 'User not found'
+  @ApiResponse({
+    status: 404,
+    description: 'User not found',
   })
   async findOne(
     @Param('id', ParseUUIDPipe) id: string,
@@ -154,22 +190,23 @@ export class UsersController {
   }
 
   @Patch('profile')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Update current user profile',
-    description: 'Updates the profile information of the currently authenticated user. Only certain fields can be updated.'
+    description:
+      'Updates the profile information of the currently authenticated user. Only certain fields can be updated.',
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Profile updated successfully',
-    type: UserResponseDto
+    type: UserResponseDto,
   })
-  @ApiResponse({ 
-    status: 400, 
-    description: 'Invalid input data or validation errors'
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid input data or validation errors',
   })
-  @ApiResponse({ 
-    status: 401, 
-    description: 'Unauthorized - Invalid or missing authentication'
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Invalid or missing authentication',
   })
   async updateProfile(
     @CurrentUser() user: UserResponseDto,
@@ -193,35 +230,36 @@ export class UsersController {
 
   @Patch(':id')
   @Roles(UserRole.ADMIN)
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Update user by ID',
-    description: 'Updates a specific user by their unique identifier. Admin access required.'
+    description:
+      'Updates a specific user by their unique identifier. Admin access required.',
   })
   @ApiParam({ name: 'id', description: 'User UUID', type: 'string' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'User updated successfully',
-    type: UserResponseDto
+    type: UserResponseDto,
   })
-  @ApiResponse({ 
-    status: 400, 
-    description: 'Invalid input data or validation errors'
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid input data or validation errors',
   })
-  @ApiResponse({ 
-    status: 401, 
-    description: 'Unauthorized - Invalid or missing authentication'
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Invalid or missing authentication',
   })
-  @ApiResponse({ 
-    status: 403, 
-    description: 'Forbidden - Admin access required'
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Admin access required',
   })
-  @ApiResponse({ 
-    status: 404, 
-    description: 'User not found'
+  @ApiResponse({
+    status: 404,
+    description: 'User not found',
   })
-  @ApiResponse({ 
-    status: 409, 
-    description: 'Email or username already exists'
+  @ApiResponse({
+    status: 409,
+    description: 'Email or username already exists',
   })
   async update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -233,22 +271,24 @@ export class UsersController {
 
   @Post('change-password')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Change user password',
-    description: 'Changes the password for the currently authenticated user.'
+    description: 'Changes the password for the currently authenticated user.',
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Password changed successfully',
-    type: MessageResponseDto
+    type: MessageResponseDto,
   })
-  @ApiResponse({ 
-    status: 400, 
-    description: 'Invalid input data, password requirements not met, or passwords do not match'
+  @ApiResponse({
+    status: 400,
+    description:
+      'Invalid input data, password requirements not met, or passwords do not match',
   })
-  @ApiResponse({ 
-    status: 401, 
-    description: 'Unauthorized - Invalid current password or missing authentication'
+  @ApiResponse({
+    status: 401,
+    description:
+      'Unauthorized - Invalid current password or missing authentication',
   })
   async changePassword(
     @CurrentUser() user: UserResponseDto,
@@ -260,18 +300,18 @@ export class UsersController {
 
   @Delete('profile')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Delete current user profile',
-    description: 'Soft deletes the currently authenticated user account.'
+    description: 'Soft deletes the currently authenticated user account.',
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Account deactivated successfully',
-    type: MessageResponseDto
+    type: MessageResponseDto,
   })
-  @ApiResponse({ 
-    status: 401, 
-    description: 'Unauthorized - Invalid or missing authentication'
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Invalid or missing authentication',
   })
   async deleteProfile(
     @CurrentUser() user: UserResponseDto,
@@ -284,27 +324,28 @@ export class UsersController {
   @Delete(':id')
   @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Delete user by ID',
-    description: 'Permanently deletes a user by their unique identifier. Admin access required.'
+    description:
+      'Permanently deletes a user by their unique identifier. Admin access required.',
   })
   @ApiParam({ name: 'id', description: 'User UUID', type: 'string' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'User deleted successfully',
-    type: MessageResponseDto
+    type: MessageResponseDto,
   })
-  @ApiResponse({ 
-    status: 401, 
-    description: 'Unauthorized - Invalid or missing authentication'
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Invalid or missing authentication',
   })
-  @ApiResponse({ 
-    status: 403, 
-    description: 'Forbidden - Admin access required'
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Admin access required',
   })
-  @ApiResponse({ 
-    status: 404, 
-    description: 'User not found'
+  @ApiResponse({
+    status: 404,
+    description: 'User not found',
   })
   async remove(
     @Param('id', ParseUUIDPipe) id: string,
@@ -315,27 +356,27 @@ export class UsersController {
   @Patch(':id/activate')
   @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Activate user',
-    description: 'Activates a user account. Admin access required.'
+    description: 'Activates a user account. Admin access required.',
   })
   @ApiParam({ name: 'id', description: 'User UUID', type: 'string' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'User activated successfully',
-    type: UserResponseDto
+    type: UserResponseDto,
   })
-  @ApiResponse({ 
-    status: 401, 
-    description: 'Unauthorized - Invalid or missing authentication'
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Invalid or missing authentication',
   })
-  @ApiResponse({ 
-    status: 403, 
-    description: 'Forbidden - Admin access required'
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Admin access required',
   })
-  @ApiResponse({ 
-    status: 404, 
-    description: 'User not found'
+  @ApiResponse({
+    status: 404,
+    description: 'User not found',
   })
   async activateUser(
     @Param('id', ParseUUIDPipe) id: string,
@@ -346,27 +387,27 @@ export class UsersController {
   @Patch(':id/deactivate')
   @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Deactivate user',
-    description: 'Deactivates a user account. Admin access required.'
+    description: 'Deactivates a user account. Admin access required.',
   })
   @ApiParam({ name: 'id', description: 'User UUID', type: 'string' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'User deactivated successfully',
-    type: UserResponseDto
+    type: UserResponseDto,
   })
-  @ApiResponse({ 
-    status: 401, 
-    description: 'Unauthorized - Invalid or missing authentication'
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Invalid or missing authentication',
   })
-  @ApiResponse({ 
-    status: 403, 
-    description: 'Forbidden - Admin access required'
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Admin access required',
   })
-  @ApiResponse({ 
-    status: 404, 
-    description: 'User not found'
+  @ApiResponse({
+    status: 404,
+    description: 'User not found',
   })
   async deactivateUser(
     @Param('id', ParseUUIDPipe) id: string,
@@ -377,27 +418,28 @@ export class UsersController {
   @Patch(':id/verify-email')
   @Roles(UserRole.ADMIN, UserRole.MODERATOR)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Verify user email',
-    description: 'Marks a user email as verified. Admin or Moderator access required.'
+    description:
+      'Marks a user email as verified. Admin or Moderator access required.',
   })
   @ApiParam({ name: 'id', description: 'User UUID', type: 'string' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'User email verified successfully',
-    type: UserResponseDto
+    type: UserResponseDto,
   })
-  @ApiResponse({ 
-    status: 401, 
-    description: 'Unauthorized - Invalid or missing authentication'
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Invalid or missing authentication',
   })
-  @ApiResponse({ 
-    status: 403, 
-    description: 'Forbidden - Admin or Moderator access required'
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Admin or Moderator access required',
   })
-  @ApiResponse({ 
-    status: 404, 
-    description: 'User not found'
+  @ApiResponse({
+    status: 404,
+    description: 'User not found',
   })
   async verifyEmail(
     @Param('id', ParseUUIDPipe) id: string,
@@ -408,31 +450,31 @@ export class UsersController {
   @Patch(':id/role')
   @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Update user role',
-    description: 'Updates a user role. Admin access required.'
+    description: 'Updates a user role. Admin access required.',
   })
   @ApiParam({ name: 'id', description: 'User UUID', type: 'string' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'User role updated successfully',
-    type: UserResponseDto
+    type: UserResponseDto,
   })
-  @ApiResponse({ 
-    status: 400, 
-    description: 'Invalid role'
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid role',
   })
-  @ApiResponse({ 
-    status: 401, 
-    description: 'Unauthorized - Invalid or missing authentication'
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Invalid or missing authentication',
   })
-  @ApiResponse({ 
-    status: 403, 
-    description: 'Forbidden - Admin access required'
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Admin access required',
   })
-  @ApiResponse({ 
-    status: 404, 
-    description: 'User not found'
+  @ApiResponse({
+    status: 404,
+    description: 'User not found',
   })
   async updateRole(
     @Param('id', ParseUUIDPipe) id: string,
@@ -446,27 +488,32 @@ export class UsersController {
 
   @Get('search/by-email')
   @Roles(UserRole.ADMIN, UserRole.MODERATOR)
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Find user by email',
-    description: 'Searches for a user by email address. Admin or Moderator access required.'
+    description:
+      'Searches for a user by email address. Admin or Moderator access required.',
   })
-  @ApiQuery({ name: 'email', description: 'Email address to search for', type: 'string' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiQuery({
+    name: 'email',
+    description: 'Email address to search for',
+    type: 'string',
+  })
+  @ApiResponse({
+    status: 200,
     description: 'User found or null if not found',
-    type: UserResponseDto
+    type: UserResponseDto,
   })
-  @ApiResponse({ 
-    status: 400, 
-    description: 'Email parameter is required'
+  @ApiResponse({
+    status: 400,
+    description: 'Email parameter is required',
   })
-  @ApiResponse({ 
-    status: 401, 
-    description: 'Unauthorized - Invalid or missing authentication'
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Invalid or missing authentication',
   })
-  @ApiResponse({ 
-    status: 403, 
-    description: 'Forbidden - Admin or Moderator access required'
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Admin or Moderator access required',
   })
   async findByEmail(
     @Query('email') email: string,
@@ -479,27 +526,32 @@ export class UsersController {
 
   @Get('search/by-username')
   @Roles(UserRole.ADMIN, UserRole.MODERATOR)
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Find user by username',
-    description: 'Searches for a user by username. Admin or Moderator access required.'
+    description:
+      'Searches for a user by username. Admin or Moderator access required.',
   })
-  @ApiQuery({ name: 'username', description: 'Username to search for', type: 'string' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiQuery({
+    name: 'username',
+    description: 'Username to search for',
+    type: 'string',
+  })
+  @ApiResponse({
+    status: 200,
     description: 'User found or null if not found',
-    type: UserResponseDto
+    type: UserResponseDto,
   })
-  @ApiResponse({ 
-    status: 400, 
-    description: 'Username parameter is required'
+  @ApiResponse({
+    status: 400,
+    description: 'Username parameter is required',
   })
-  @ApiResponse({ 
-    status: 401, 
-    description: 'Unauthorized - Invalid or missing authentication'
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Invalid or missing authentication',
   })
-  @ApiResponse({ 
-    status: 403, 
-    description: 'Forbidden - Admin or Moderator access required'
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Admin or Moderator access required',
   })
   async findByUsername(
     @Query('username') username: string,

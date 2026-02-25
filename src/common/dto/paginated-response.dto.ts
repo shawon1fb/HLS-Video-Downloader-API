@@ -1,58 +1,58 @@
 import { ApiProperty } from '@nestjs/swagger';
 
 export class PaginationMetaDto {
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Current page number',
     example: 1,
-    minimum: 1
+    minimum: 1,
   })
   page: number;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Number of items per page',
     example: 10,
     minimum: 1,
-    maximum: 100
+    maximum: 100,
   })
   limit: number;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Total number of items',
     example: 150,
-    minimum: 0
+    minimum: 0,
   })
   total: number;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Total number of pages',
     example: 15,
-    minimum: 0
+    minimum: 0,
   })
   totalPages: number;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Whether there is a next page',
-    example: true
+    example: true,
   })
   hasNext: boolean;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Whether there is a previous page',
-    example: false
+    example: false,
   })
   hasPrev: boolean;
 }
 
 export class PaginatedResponseDto<T> {
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Array of items for the current page',
-    isArray: true
+    isArray: true,
   })
   data: T[];
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Pagination metadata',
-    type: PaginationMetaDto
+    type: PaginationMetaDto,
   })
   meta: PaginationMetaDto;
 }

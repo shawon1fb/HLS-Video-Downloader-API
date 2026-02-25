@@ -1,7 +1,7 @@
 services:
   redis:
     image: redis:6.2.6
-    container_name: backend-template-redis
+    container_name: video-downloader-api-redis
     ports:
       - '6381:6379'
     command: redis-server --requirepass eChTelptB2spNWp92Pv_U2FJd8tT9jQg
@@ -16,7 +16,7 @@ services:
       - backend_network
   redis-bullmq:
     image: redis:6.2.6
-    container_name: backend-template-redis-bullmq
+    container_name: video-downloader-api-redis-bullmq
     ports:
       - '6382:6379'
     command: redis-server
@@ -30,7 +30,7 @@ services:
       - backend_network
   redis-bullboard:
     image: deadly0/bull-board
-    container_name: backend-template-redis-bullboard
+    container_name: video-downloader-api-redis-bullboard
     ports:
       - '3001:3000'
     environment:
@@ -44,13 +44,13 @@ services:
       - backend_network
   postgres:
     image: postgres:15-alpine
-    container_name: backend-template-postgres
+    container_name: video-downloader-api-postgres
     ports:
       - '5433:5432'
     environment:
-      - POSTGRES_DB=task_db
-      - POSTGRES_USER=task_user
-      - POSTGRES_PASSWORD=task_password_2024
+      - POSTGRES_DB=video_downloader_db
+      - POSTGRES_USER=video_downloader_user
+      - POSTGRES_PASSWORD=video_downloader_password_2026
       - PGDATA=/var/lib/postgresql/data/pgdata
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -58,7 +58,7 @@ services:
       - backend_network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U task_user -d task_db"]
+      test: ["CMD-SHELL", "pg_isready -U video_downloader_user -d video_downloader_db"]
       interval: 30s
       timeout: 10s
       retries: 3

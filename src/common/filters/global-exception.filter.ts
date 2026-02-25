@@ -25,13 +25,13 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     if (exception instanceof HttpException) {
       status = exception.getStatus();
       const exceptionResponse = exception.getResponse();
-      
+
       if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
         const responseObj = exceptionResponse as any;
         message = responseObj.message || exception.message;
         errors = responseObj.errors;
       } else {
-        message = exceptionResponse as string;
+        message = exceptionResponse;
       }
     }
 
@@ -55,7 +55,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     if (process.env.NODE_ENV === 'production') {
       delete errorResponse.path;
       delete errorResponse.method;
-      
+
       // Generic error messages for server errors in production
       if (status >= 500) {
         errorResponse.message = 'Internal server error';
@@ -66,13 +66,16 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     response.status(status).send(errorResponse);
   }
 
-  private sanitizeMessage(message: string | string[], status: number): string | string[] {
+  private sanitizeMessage(
+    message: string | string[],
+    status: number,
+  ): string | string[] {
     if (process.env.NODE_ENV === 'production' && status >= 500) {
       return 'Internal server error';
     }
 
     if (Array.isArray(message)) {
-      return message.map(msg => this.removeSensitiveInfo(msg));
+      return message.map((msg) => this.removeSensitiveInfo(msg));
     }
 
     return this.removeSensitiveInfo(message);
@@ -84,7 +87,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     }
 
     if (Array.isArray(errors)) {
-      return errors.map(error => this.removeSensitiveInfo(error));
+      return errors.map((error) => this.removeSensitiveInfo(error));
     }
 
     if (typeof errors === 'object') {
@@ -109,9 +112,15 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       .replace(/secret[\s]*[:=][\s]*[^\s]+/gi, 'secret: [REDACTED]')
       .replace(/token[\s]*[:=][\s]*[^\s]+/gi, 'token: [REDACTED]')
       .replace(/key[\s]*[:=][\s]*[^\s]+/gi, 'key: [REDACTED]')
-      .replace(/authorization[\s]*[:=][\s]*[^\s]+/gi, 'authorization: [REDACTED]')
+      .replace(
+        /authorization[\s]*[:=][\s]*[^\s]+/gi,
+        'authorization: [REDACTED]',
+      )
       .replace(/bearer[\s]+[^\s]+/gi, 'bearer [REDACTED]')
-      .replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, '[EMAIL_REDACTED]')
+      .replace(
+        /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g,
+        '[EMAIL_REDACTED]',
+      )
       .replace(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g, '[IP_REDACTED]');
   }
 }

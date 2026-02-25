@@ -3,15 +3,15 @@ import { UserResponseDto } from './user-response.dto';
 import { PaginationMetaDto } from '../../common/dto/paginated-response.dto';
 
 export class PaginatedUserResponseDto {
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Array of users for the current page',
-    type: [UserResponseDto]
+    type: [UserResponseDto],
   })
   data: UserResponseDto[];
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Pagination metadata',
-    type: PaginationMetaDto
+    type: PaginationMetaDto,
   })
   meta: PaginationMetaDto;
 }

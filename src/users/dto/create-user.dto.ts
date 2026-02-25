@@ -16,20 +16,20 @@ export enum UserRole {
 }
 
 export class CreateUserDto {
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'User email address',
     example: 'user@example.com',
-    format: 'email'
+    format: 'email',
   })
   @IsEmail({}, { message: 'Please provide a valid email address' })
   @Transform(({ value }) => value?.toLowerCase())
   email: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Unique username',
     example: 'johndoe',
     minLength: 3,
-    maxLength: 100
+    maxLength: 100,
   })
   @IsString({ message: 'Username must be a string' })
   @MinLength(3, { message: 'Username must be at least 3 characters long' })
@@ -37,11 +37,11 @@ export class CreateUserDto {
   @Transform(({ value }) => value?.toLowerCase())
   username: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'User first name',
     example: 'John',
     minLength: 1,
-    maxLength: 100
+    maxLength: 100,
   })
   @IsString({ message: 'First name must be a string' })
   @MinLength(1, { message: 'First name is required' })
@@ -49,11 +49,11 @@ export class CreateUserDto {
   @Transform(({ value }) => value?.trim())
   firstName: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'User last name',
     example: 'Doe',
     minLength: 1,
-    maxLength: 100
+    maxLength: 100,
   })
   @IsString({ message: 'Last name must be a string' })
   @MinLength(1, { message: 'Last name is required' })
@@ -61,33 +61,31 @@ export class CreateUserDto {
   @Transform(({ value }) => value?.trim())
   lastName: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'User password',
     example: 'SecurePassword123!',
     minLength: 8,
     maxLength: 255,
-    format: 'password'
+    format: 'password',
   })
   @IsString({ message: 'Password must be a string' })
   @MinLength(8, { message: 'Password must be at least 8 characters long' })
   @MaxLength(255, { message: 'Password cannot exceed 255 characters' })
   password: string;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'User role',
     enum: UserRole,
-    example: UserRole.USER
+    example: UserRole.USER,
   })
   @IsOptional()
   @IsEnum(UserRole, { message: 'Role must be one of: user, admin, moderator' })
   role?: UserRole;
 
-
-
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Profile picture URL',
     example: 'https://example.com/profile.jpg',
-    maxLength: 500
+    maxLength: 500,
   })
   @IsOptional()
   @IsString({ message: 'Profile picture must be a string' })

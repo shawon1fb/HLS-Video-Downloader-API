@@ -23,12 +23,13 @@ async function bootstrap() {
   // Apply global security measures
   app.useGlobalPipes(new CustomValidationPipe());
   app.useGlobalFilters(new GlobalExceptionFilter());
-  
+
   // Enable CORS for API endpoints
   app.enableCors({
-    origin: process.env.NODE_ENV === 'production' 
-      ? process.env.ALLOWED_ORIGINS?.split(',') || false
-      : true,
+    origin:
+      process.env.NODE_ENV === 'production'
+        ? process.env.ALLOWED_ORIGINS?.split(',') || false
+        : true,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key'],
@@ -36,7 +37,10 @@ async function bootstrap() {
 
   // Register Swagger documentation
   if (swaggerConfig.enabled) {
-    await app.register(require('@fastify/swagger'), swaggerConfig.getSwaggerOptions());
+    await app.register(
+      require('@fastify/swagger'),
+      swaggerConfig.getSwaggerOptions(),
+    );
     await app.register(require('@fastify/swagger-ui'), {
       routePrefix: swaggerConfig.path,
       uiConfig: {
