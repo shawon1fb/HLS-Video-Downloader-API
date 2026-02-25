@@ -8,7 +8,7 @@ import {
 import { CreateDownloadDto } from './dto/create-download.dto';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { eq, lt, inArray, desc, notInArray } from 'drizzle-orm';
+import { eq, lt, inArray, desc, notInArray, and } from 'drizzle-orm';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -110,6 +110,57 @@ export class DownloadsService {
       .orderBy(desc(downloads.createdAt));
 
     return activeDownloads;
+  }
+
+  async getActiveDownloadsWithProgress(downloadIds?: string[] | null) {
+    const activeStatuses = [DownloadStatus.PENDING, DownloadStatus.PROCESSING];
+
+    const whereConditions: any[] = [inArray(downloads.status, activeStatuses)];
+
+    if (downloadIds && downloadIds.length > 0) {
+      whereConditions.push(inArray(downloads.id, downloadIds));
+    }
+
+    const activeDownloads = await this.db
+      .select({
+        id: downloads.id,
+        url: downloads.url,
+        status: downloads.status,
+        progress: downloads.progress,
+        format: downloads.format,
+        fileName: downloads.fileName,
+        createdAt: downloads.createdAt,
+        updatedAt: downloads.updatedAt,
+      })
+      .from(downloads)
+      .where(and(...whereConditions))
+      .orderBy(desc(downloads.createdAt));
+
+    // Add queue position for pending downloads
+    const jobs = await this.downloadQueue.getJobs(['waiting', 'delayed', 'active']);
+
+    return activeDownloads.map((download) => {
+      const job = jobs.find((j) => j.data.downloadId === download.id);
+      return {
+        ...download,
+        queuePosition: job ? jobs.indexOf(job) + 1 : null,
+        estimatedTimeRemaining: this.estimateTimeRemaining(download),
+      };
+    });
+  }
+
+  private estimateTimeRemaining(download: any): number | null {
+    if (download.status !== DownloadStatus.PROCESSING || !download.progress || download.progress <= 0) {
+      return null;
+    }
+
+    // Simple estimation based on progress and elapsed time
+    const elapsed = Date.now() - new Date(download.updatedAt).getTime();
+    const progressRate = download.progress / elapsed; // percent per ms
+    const remainingPercent = 100 - download.progress;
+    const estimatedMs = remainingPercent / progressRate;
+
+    return Math.round(estimatedMs / 1000); // return seconds
   }
 
   async getDownloadHistory() {

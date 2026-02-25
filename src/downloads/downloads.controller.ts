@@ -8,6 +8,8 @@ import {
   Res,
   HttpCode,
   HttpStatus,
+  Sse,
+  Query,
 } from '@nestjs/common';
 import { DownloadsService } from './downloads.service';
 import { CreateDownloadDto } from './dto/create-download.dto';
@@ -20,7 +22,9 @@ import {
   ApiResponse,
   ApiBody,
   ApiParam,
+  ApiQuery,
 } from '@nestjs/swagger';
+import { interval, map, Observable, switchMap } from 'rxjs';
 import { ResponseMessage } from '../common/decorators/response-message.decorator';
 import { ApiResponseDto } from '../common/dto/api-response.dto';
 
@@ -105,6 +109,38 @@ export class DownloadsController {
   @ApiResponse({ status: 404, description: 'Download not found' })
   deleteDownload(@Param('id') id: string) {
     return this.downloadsService.deleteDownload(id);
+  }
+
+  @Sse('downloads/progress')
+  @ApiOperation({
+    summary: 'Get live download progress (SSE)',
+    description:
+      'Server-Sent Events endpoint that streams live progress updates for active downloads. Polls every second.',
+  })
+  @ApiQuery({
+    name: 'downloadIds',
+    required: false,
+    description: 'Comma-separated list of download IDs to watch (optional, default: all active)',
+    example: 'id1,id2,id3',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'SSE stream with download progress updates',
+  })
+  getLiveProgress(@Query('downloadIds') downloadIds?: string): Observable<MessageEvent> {
+    const ids = downloadIds ? downloadIds.split(',').map((id) => id.trim()) : null;
+
+    return interval(1000).pipe(
+      switchMap(async () => {
+        const activeDownloads = await this.downloadsService.getActiveDownloadsWithProgress(ids);
+        return {
+          data: {
+            timestamp: new Date().toISOString(),
+            downloads: activeDownloads,
+          },
+        } as MessageEvent;
+      }),
+    );
   }
 
   @Get('files/:filename')

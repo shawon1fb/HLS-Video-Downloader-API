@@ -10,6 +10,7 @@ import {
 export enum DownloadStatus {
   PENDING = 'pending',
   PROCESSING = 'processing',
+  PAUSED = 'paused',
   COMPLETED = 'completed',
   FAILED = 'failed',
   CANCELLED = 'cancelled',
