@@ -36,6 +36,20 @@ export class DownloadsController {
     return this.downloadsService.clearQueue();
   }
 
+  @Get('downloads/active')
+  @ApiOperation({ summary: 'Get all active downloads with progress' })
+  @ApiResponse({ status: 200, description: 'Return list of active downloads.' })
+  getActive() {
+    return this.downloadsService.getActiveDownloads();
+  }
+
+  @Get('downloads/history')
+  @ApiOperation({ summary: 'Get download history (completed/failed)' })
+  @ApiResponse({ status: 200, description: 'Return download history.' })
+  getHistory() {
+    return this.downloadsService.getDownloadHistory();
+  }
+
   @Get('downloads/:id')
   @ApiOperation({ summary: 'Get download status' })
   @ApiResponse({ status: 200, description: 'Return download status.' })

@@ -8,7 +8,7 @@ import {
 import { CreateDownloadDto } from './dto/create-download.dto';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { eq, lt } from 'drizzle-orm';
+import { eq, lt, inArray, desc, notInArray } from 'drizzle-orm';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -79,6 +79,28 @@ export class DownloadsService {
     await this.downloadQueue.obliterate({ force: true });
     this.logger.log('Queue cleared successfully');
     return { message: 'Queue cleared successfully' };
+  }
+
+  async getActiveDownloads() {
+    const activeStatuses = [DownloadStatus.PENDING, DownloadStatus.PROCESSING];
+    const activeDownloads = await this.db
+      .select()
+      .from(downloads)
+      .where(inArray(downloads.status, activeStatuses))
+      .orderBy(desc(downloads.createdAt));
+
+    return activeDownloads;
+  }
+
+  async getDownloadHistory() {
+    const historyStatuses = [DownloadStatus.COMPLETED, DownloadStatus.FAILED];
+    const history = await this.db
+      .select()
+      .from(downloads)
+      .where(inArray(downloads.status, historyStatuses))
+      .orderBy(desc(downloads.createdAt));
+
+    return history;
   }
 
   async findOne(id: string) {
