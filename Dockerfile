@@ -10,6 +10,7 @@ RUN apk add --no-cache \
     python3 \
     make \
     g++ \
+    ffmpeg \
     && ln -sf python3 /usr/bin/python
 
 # Copy package files for dependency installation
@@ -40,7 +41,7 @@ RUN addgroup -g 1001 -S nodejs && \
 WORKDIR /app
 
 # Install dumb-init for proper signal handling
-RUN apk add --no-cache dumb-init
+RUN apk add --no-cache dumb-init ffmpeg
 
 # Copy production dependencies from builder stage
 COPY --from=builder --chown=nestjs:nodejs /app/node_modules ./node_modules

@@ -23,10 +23,23 @@ import {
   SanitizationMiddleware,
   SecurityHeadersMiddleware,
 } from './common/middleware';
+import { ScheduleModule } from '@nestjs/schedule';
+import { DownloadsModule } from './downloads/downloads.module';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { AppConfig } from './config/app.config';
 
 @Module({
   imports: [
     ConfigifyModule.forRootAsync(),
+    ScheduleModule.forRoot(),
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigifyModule],
+      useFactory: (appConfig: AppConfig) => ([{
+        ttl: appConfig.rateLimitTtl * 1000,
+        limit: appConfig.rateLimitLimit,
+      }]),
+      inject: [AppConfig],
+    }),
     CacheModule.registerAsync({
       isGlobal: true,
       imports: [ConfigifyModule],
@@ -232,6 +245,7 @@ import {
     DatabaseModule,
     UsersModule,
     AuthModule,
+    DownloadsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

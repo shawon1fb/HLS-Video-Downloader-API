@@ -8,8 +8,8 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_PASSWORD=eChTelptB2spNWp92Pv_U2FJd8tT9jQg
-    expose:
-      - 6379
+    ports:
+      - '6385:6379'
     networks:
       - backend_network
   redis-bullmq:
@@ -20,8 +20,8 @@ services:
       - REDIS_REPLICATION_MODE=master
       - REDIS_HOST=redis-bullmq
       - REDIS_PORT=6379
-    expose:
-      - 6379
+    ports:
+      - '6386:6379'
     networks:
       - backend_network
   redis-bullboard:

@@ -9,6 +9,7 @@ import {
   uuid,
   json,
 } from 'drizzle-orm/pg-core';
+import { downloads } from './downloads';
 
 // User role enum
 export enum UserRole {
@@ -41,9 +42,12 @@ export const users = pgTable('users', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
+export * from './downloads';
+
 // Export all schemas
 export const schema = {
   users,
+  downloads,
 };
 
 export type User = typeof users.$inferSelect;
