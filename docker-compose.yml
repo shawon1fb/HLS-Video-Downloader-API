@@ -1,0 +1,72 @@
+services:
+  redis:
+    image: redis:6.2.6
+    container_name: backend-template-redis
+    ports:
+      - '6381:6379'
+    command: redis-server --requirepass eChTelptB2spNWp92Pv_U2FJd8tT9jQg
+    environment:
+      - REDIS_REPLICATION_MODE=master
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=eChTelptB2spNWp92Pv_U2FJd8tT9jQg
+    expose:
+      - 6379
+    networks:
+      - backend_network
+  redis-bullmq:
+    image: redis:6.2.6
+    container_name: backend-template-redis-bullmq
+    ports:
+      - '6382:6379'
+    command: redis-server
+    environment:
+      - REDIS_REPLICATION_MODE=master
+      - REDIS_HOST=redis-bullmq
+      - REDIS_PORT=6379
+    expose:
+      - 6379
+    networks:
+      - backend_network
+  redis-bullboard:
+    image: deadly0/bull-board
+    container_name: backend-template-redis-bullboard
+    ports:
+      - '3001:3000'
+    environment:
+      - REDIS_HOST=redis-bullmq
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=
+      - REDIS_USE_TLS=false
+    depends_on:
+      - redis-bullmq
+    networks:
+      - backend_network
+  postgres:
+    image: postgres:15-alpine
+    container_name: backend-template-postgres
+    ports:
+      - '5433:5432'
+    environment:
+      - POSTGRES_DB=task_db
+      - POSTGRES_USER=task_user
+      - POSTGRES_PASSWORD=task_password_2024
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - backend_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U task_user -d task_db"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  backend_network:
+    driver: bridge
