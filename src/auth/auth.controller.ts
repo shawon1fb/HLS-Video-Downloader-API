@@ -12,6 +12,7 @@ import {
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
+  ApiBody,
 } from '@nestjs/swagger';
 import { AuthService, LoginDto, AuthResponse } from './auth.service';
 import { CreateUserDto } from '../users/dto';
@@ -26,7 +27,7 @@ import {
   MessageResponseDto,
 } from './dto/auth-response.dto';
 
-@ApiTags('Authentication')
+@ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -51,6 +52,7 @@ export class AuthController {
     status: 409,
     description: 'User already exists with this email or username',
   })
+  @ApiBody({ type: CreateUserDto })
   async register(
     @Body(new ValidationPipe({ transform: true, whitelist: true }))
     createUserDto: CreateUserDto,
@@ -79,6 +81,7 @@ export class AuthController {
     status: 400,
     description: 'Invalid input data',
   })
+  @ApiBody({ type: LoginDto })
   async login(
     @Body(new ValidationPipe({ transform: true, whitelist: true }))
     loginDto: LoginDto,
@@ -106,6 +109,7 @@ export class AuthController {
     status: 400,
     description: 'Invalid input data',
   })
+  @ApiBody({ type: RefreshTokenDto })
   async refresh(
     @Body(new ValidationPipe({ transform: true, whitelist: true }))
     refreshTokenDto: RefreshTokenDto,
@@ -116,7 +120,7 @@ export class AuthController {
   @Post('logout')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
-  @ApiBearerAuth()
+  @ApiBearerAuth('bearerAuth')
   @ApiOperation({
     summary: 'User logout',
     description: 'Invalidates the refresh token and logs out the user.',
@@ -156,6 +160,7 @@ export class AuthController {
     status: 404,
     description: 'User not found with this email',
   })
+  @ApiBody({ type: ForgotPasswordDto })
   async forgotPassword(
     @Body(new ValidationPipe({ transform: true, whitelist: true }))
     forgotPasswordDto: ForgotPasswordDto,
@@ -183,6 +188,7 @@ export class AuthController {
     status: 401,
     description: 'Invalid or expired reset token',
   })
+  @ApiBody({ type: ResetPasswordDto })
   async resetPassword(
     @Body(new ValidationPipe({ transform: true, whitelist: true }))
     resetPasswordDto: ResetPasswordDto,

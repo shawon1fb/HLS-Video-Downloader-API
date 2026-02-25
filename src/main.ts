@@ -3,10 +3,12 @@ import {
   FastifyAdapter,
   NestFastifyApplication,
 } from '@nestjs/platform-fastify';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import compression from '@fastify/compress';
 import { CustomValidationPipe, GlobalExceptionFilter } from './common';
 import { SwaggerConfig } from './config/swagger.config';
+
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
@@ -14,17 +16,11 @@ async function bootstrap() {
   );
   await app.register(compression);
 
-  // Get configuration
   const swaggerConfig = app.get(SwaggerConfig);
 
-  // Global request logging
-  // app.useGlobalInterceptors(new LoggingInterceptor());
-
-  // Apply global security measures
   app.useGlobalPipes(new CustomValidationPipe());
   app.useGlobalFilters(new GlobalExceptionFilter());
 
-  // Enable CORS for API endpoints
   app.enableCors({
     origin:
       process.env.NODE_ENV === 'production'
@@ -35,27 +31,66 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key'],
   });
 
-  // Register Swagger documentation
   if (swaggerConfig.enabled) {
-    await app.register(
-      require('@fastify/swagger'),
-      swaggerConfig.getSwaggerOptions(),
-    );
-    await app.register(require('@fastify/swagger-ui'), {
-      routePrefix: swaggerConfig.path,
-      uiConfig: {
+    const builder = new DocumentBuilder()
+      .setTitle(swaggerConfig.title)
+      .setDescription(swaggerConfig.description)
+      .setVersion(swaggerConfig.version)
+      .setContact(swaggerConfig.contactName, '', swaggerConfig.contactEmail)
+      .setLicense('MIT', 'https://opensource.org/licenses/MIT')
+      .addBearerAuth(
+        {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+          description:
+            'JWT Authorization header using the Bearer scheme. Format: Bearer <token>',
+        },
+        'bearerAuth',
+      )
+      .addApiKey(
+        {
+          type: 'apiKey',
+          in: 'header',
+          name: 'x-api-key',
+          description: 'API Key for application authentication.',
+        },
+        'apiKeyAuth',
+      )
+      .addTag(
+        'Auth',
+        'Authentication endpoints — register, login, token refresh, password reset, logout.',
+      )
+      .addTag(
+        'Users',
+        'User management — CRUD, profile, roles, activation. Requires authentication.',
+      )
+      .addTag(
+        'Downloads',
+        'Video download endpoints — start downloads, check status, get history.',
+      )
+      .addTag('Health', 'Health check and monitoring endpoints.');
+
+    for (const server of swaggerConfig.getServers()) {
+      builder.addServer(server.url, server.description);
+    }
+
+    const config = builder.build();
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup(swaggerConfig.path, app, document, {
+      swaggerOptions: {
         docExpansion: 'list',
-        deepLinking: false,
+        deepLinking: true,
+        defaultModelsExpandDepth: 1,
+        defaultModelExpandDepth: 1,
+        displayRequestDuration: true,
+        filter: true,
+        tryItOutEnabled: true,
+        persistAuthorization: true,
       },
-      staticCSP: true,
-      transformStaticCSP: (header) => header,
-      transformSpecification: (swaggerObject, request, reply) => {
-        return swaggerObject;
-      },
-      transformSpecificationClone: true,
     });
   }
-  // Log all available routes using Fastify's onRoute hook
+
   app
     .getHttpAdapter()
     .getInstance()
@@ -65,6 +100,5 @@ async function bootstrap() {
 
   await app.listen(process.env.PORT ?? 8000);
   console.log(`Application is running on: ${await app.getUrl()}`);
-  console.log('All routes have been logged above during registration.');
 }
 bootstrap();

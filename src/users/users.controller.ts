@@ -20,6 +20,7 @@ import {
   ApiBearerAuth,
   ApiParam,
   ApiQuery,
+  ApiBody,
 } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import {
@@ -37,7 +38,7 @@ import { Public, Roles, CurrentUser } from '../auth/decorators';
 import { UserRole } from '../database/schema';
 
 @ApiTags('Users')
-@ApiBearerAuth()
+@ApiBearerAuth('bearerAuth')
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class UsersController {
@@ -63,6 +64,7 @@ export class UsersController {
     status: 409,
     description: 'User already exists with this email or username',
   })
+  @ApiBody({ type: CreateUserDto })
   async create(
     @Body(new ValidationPipe({ transform: true, whitelist: true }))
     createUserDto: CreateUserDto,
@@ -208,6 +210,7 @@ export class UsersController {
     status: 401,
     description: 'Unauthorized - Invalid or missing authentication',
   })
+  @ApiBody({ type: UpdateUserDto })
   async updateProfile(
     @CurrentUser() user: UserResponseDto,
     @Body(new ValidationPipe({ transform: true, whitelist: true }))
@@ -261,6 +264,7 @@ export class UsersController {
     status: 409,
     description: 'Email or username already exists',
   })
+  @ApiBody({ type: UpdateUserDto })
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ValidationPipe({ transform: true, whitelist: true }))
@@ -290,6 +294,7 @@ export class UsersController {
     description:
       'Unauthorized - Invalid current password or missing authentication',
   })
+  @ApiBody({ type: ChangePasswordDto })
   async changePassword(
     @CurrentUser() user: UserResponseDto,
     @Body(new ValidationPipe({ transform: true, whitelist: true }))
