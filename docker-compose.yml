@@ -2,8 +2,6 @@ services:
   redis:
     image: redis:6.2.6
     container_name: video-downloader-api-redis
-    ports:
-      - '6381:6379'
     command: redis-server --requirepass eChTelptB2spNWp92Pv_U2FJd8tT9jQg
     environment:
       - REDIS_REPLICATION_MODE=master
@@ -17,8 +15,6 @@ services:
   redis-bullmq:
     image: redis:6.2.6
     container_name: video-downloader-api-redis-bullmq
-    ports:
-      - '6382:6379'
     command: redis-server
     environment:
       - REDIS_REPLICATION_MODE=master
@@ -32,7 +28,7 @@ services:
     image: deadly0/bull-board
     container_name: video-downloader-api-redis-bullboard
     ports:
-      - '3001:3000'
+      - '3011:3000'
     environment:
       - REDIS_HOST=redis-bullmq
       - REDIS_PORT=6379
@@ -46,7 +42,7 @@ services:
     image: postgres:15-alpine
     container_name: video-downloader-api-postgres
     ports:
-      - '5433:5432'
+      - '5434:5432'
     environment:
       - POSTGRES_DB=video_downloader_db
       - POSTGRES_USER=video_downloader_user

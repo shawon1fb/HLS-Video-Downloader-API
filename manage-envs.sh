@@ -68,7 +68,7 @@ db_operations() {
             echo "Running database migrations for production environment..."
             echo "Setting production database environment variables..."
             export DB_HOST=localhost
-            export DB_PORT=5432
+            export DB_PORT=5434
             export DB_USER=video_downloader_user
             export DB_PASSWORD=video_downloader_password_2026
             export DB_NAME=video_downloader_db
