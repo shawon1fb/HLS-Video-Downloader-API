@@ -18,7 +18,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 type AbortReason = 'paused' | 'cancelled' | null;
 
-@Processor('downloads', { concurrency: 5 })
+@Processor('downloads', { concurrency: 3 })
 export class DownloadProcessor extends WorkerHost {
   private readonly logger = new Logger(DownloadProcessor.name);
   private readonly DOWNLOAD_DIR = path.resolve(__dirname, '../../downloads');
