@@ -42,7 +42,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     );
 
     // Sanitize error response for production
-    const errorResponse = {
+    const errorResponse: Record<string, unknown> = {
+      success: false,
       statusCode: status,
       timestamp: new Date().toISOString(),
       path: request.url,

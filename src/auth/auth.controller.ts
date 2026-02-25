@@ -20,12 +20,8 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { Public, CurrentUser } from './decorators';
 import { UserResponseDto } from '../users/dto';
 import { RefreshTokenDto, ForgotPasswordDto, ResetPasswordDto } from './dto';
-import {
-  LoginResponseDto,
-  RefreshResponseDto,
-  RegisterResponseDto,
-  MessageResponseDto,
-} from './dto/auth-response.dto';
+import { ResponseMessage } from '../common/decorators/response-message.decorator';
+import { ApiResponseDto } from '../common/dto/api-response.dto';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -35,6 +31,7 @@ export class AuthController {
   @Post('register')
   @Public()
   @HttpCode(HttpStatus.CREATED)
+  @ResponseMessage('User registered successfully')
   @ApiOperation({
     summary: 'Register a new user',
     description: 'Creates a new user account with the provided credentials.',
@@ -42,16 +39,10 @@ export class AuthController {
   @ApiResponse({
     status: 201,
     description: 'User registered successfully',
-    type: RegisterResponseDto,
+    type: ApiResponseDto,
   })
-  @ApiResponse({
-    status: 400,
-    description: 'Invalid input data or validation errors',
-  })
-  @ApiResponse({
-    status: 409,
-    description: 'User already exists with this email or username',
-  })
+  @ApiResponse({ status: 400, description: 'Invalid input data or validation errors' })
+  @ApiResponse({ status: 409, description: 'User already exists with this email or username' })
   @ApiBody({ type: CreateUserDto })
   async register(
     @Body(new ValidationPipe({ transform: true, whitelist: true }))
@@ -63,6 +54,7 @@ export class AuthController {
   @Post('login')
   @Public()
   @HttpCode(HttpStatus.OK)
+  @ResponseMessage('Login successful')
   @ApiOperation({
     summary: 'User login',
     description:
@@ -71,16 +63,10 @@ export class AuthController {
   @ApiResponse({
     status: 200,
     description: 'Login successful',
-    type: LoginResponseDto,
+    type: ApiResponseDto,
   })
-  @ApiResponse({
-    status: 401,
-    description: 'Invalid credentials or account locked',
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Invalid input data',
-  })
+  @ApiResponse({ status: 401, description: 'Invalid credentials or account locked' })
+  @ApiResponse({ status: 400, description: 'Invalid input data' })
   @ApiBody({ type: LoginDto })
   async login(
     @Body(new ValidationPipe({ transform: true, whitelist: true }))
@@ -92,6 +78,7 @@ export class AuthController {
   @Post('refresh')
   @Public()
   @HttpCode(HttpStatus.OK)
+  @ResponseMessage('Token refreshed successfully')
   @ApiOperation({
     summary: 'Refresh access token',
     description: 'Generates a new access token using a valid refresh token.',
@@ -99,16 +86,10 @@ export class AuthController {
   @ApiResponse({
     status: 200,
     description: 'Token refreshed successfully',
-    type: RefreshResponseDto,
+    type: ApiResponseDto,
   })
-  @ApiResponse({
-    status: 401,
-    description: 'Invalid or expired refresh token',
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Invalid input data',
-  })
+  @ApiResponse({ status: 401, description: 'Invalid or expired refresh token' })
+  @ApiResponse({ status: 400, description: 'Invalid input data' })
   @ApiBody({ type: RefreshTokenDto })
   async refresh(
     @Body(new ValidationPipe({ transform: true, whitelist: true }))
@@ -120,6 +101,7 @@ export class AuthController {
   @Post('logout')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
+  @ResponseMessage('Logged out successfully')
   @ApiBearerAuth('bearerAuth')
   @ApiOperation({
     summary: 'User logout',
@@ -128,21 +110,17 @@ export class AuthController {
   @ApiResponse({
     status: 200,
     description: 'Logout successful',
-    type: MessageResponseDto,
+    type: ApiResponseDto,
   })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized - Invalid or missing authentication',
-  })
-  async logout(
-    @CurrentUser() user: UserResponseDto,
-  ): Promise<{ message: string }> {
+  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid or missing authentication' })
+  async logout(@CurrentUser() user: UserResponseDto): Promise<{ message: string }> {
     return this.authService.logout(user.id);
   }
 
   @Post('forgot-password')
   @Public()
   @HttpCode(HttpStatus.OK)
+  @ResponseMessage('Password reset email sent')
   @ApiOperation({
     summary: 'Request password reset',
     description: 'Sends a password reset email to the specified email address.',
@@ -150,16 +128,10 @@ export class AuthController {
   @ApiResponse({
     status: 200,
     description: 'Password reset email sent successfully',
-    type: MessageResponseDto,
+    type: ApiResponseDto,
   })
-  @ApiResponse({
-    status: 400,
-    description: 'Invalid email format',
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'User not found with this email',
-  })
+  @ApiResponse({ status: 400, description: 'Invalid email format' })
+  @ApiResponse({ status: 404, description: 'User not found with this email' })
   @ApiBody({ type: ForgotPasswordDto })
   async forgotPassword(
     @Body(new ValidationPipe({ transform: true, whitelist: true }))
@@ -171,6 +143,7 @@ export class AuthController {
   @Post('reset-password')
   @Public()
   @HttpCode(HttpStatus.OK)
+  @ResponseMessage('Password reset successfully')
   @ApiOperation({
     summary: 'Reset password',
     description: 'Resets the user password using a valid reset token.',
@@ -178,16 +151,10 @@ export class AuthController {
   @ApiResponse({
     status: 200,
     description: 'Password reset successfully',
-    type: MessageResponseDto,
+    type: ApiResponseDto,
   })
-  @ApiResponse({
-    status: 400,
-    description: 'Invalid input data or password requirements not met',
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Invalid or expired reset token',
-  })
+  @ApiResponse({ status: 400, description: 'Invalid input data or password requirements not met' })
+  @ApiResponse({ status: 401, description: 'Invalid or expired reset token' })
   @ApiBody({ type: ResetPasswordDto })
   async resetPassword(
     @Body(new ValidationPipe({ transform: true, whitelist: true }))

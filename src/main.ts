@@ -6,7 +6,12 @@ import {
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import compression from '@fastify/compress';
-import { CustomValidationPipe, GlobalExceptionFilter } from './common';
+import {
+  CustomValidationPipe,
+  GlobalExceptionFilter,
+  TransformResponseInterceptor,
+} from './common';
+import { Reflector } from '@nestjs/core';
 import { SwaggerConfig } from './config/swagger.config';
 
 async function bootstrap() {
@@ -20,6 +25,7 @@ async function bootstrap() {
 
   app.useGlobalPipes(new CustomValidationPipe());
   app.useGlobalFilters(new GlobalExceptionFilter());
+  app.useGlobalInterceptors(new TransformResponseInterceptor(app.get(Reflector)));
 
   app.enableCors({
     origin:

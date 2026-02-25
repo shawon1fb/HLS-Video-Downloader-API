@@ -14,4 +14,22 @@ export class PaginatedUserResponseDto {
     type: PaginationMetaDto,
   })
   meta: PaginationMetaDto;
+
+  constructor(
+    data: UserResponseDto[],
+    total: number,
+    page: number,
+    limit: number,
+  ) {
+    this.data = data;
+    const totalPages = Math.ceil(total / limit);
+    this.meta = {
+      page,
+      limit,
+      total,
+      totalPages,
+      hasNext: page < totalPages,
+      hasPrev: page > 1,
+    };
+  }
 }
