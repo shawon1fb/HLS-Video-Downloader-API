@@ -40,6 +40,17 @@ export class DownloadsService {
       throw new BadRequestException('Invalid URL: Private IP addresses are not allowed');
     }
 
+    // Check if download already exists
+    const [existingDownload] = await this.db
+      .select()
+      .from(downloads)
+      .where(eq(downloads.url, url));
+
+    if (existingDownload) {
+      this.logger.log(`Download already exists for URL: ${url}`);
+      return existingDownload;
+    }
+
     const format = url.endsWith('.m3u8') ? DownloadFormat.HLS : DownloadFormat.MP4;
     
     // Save to DB
