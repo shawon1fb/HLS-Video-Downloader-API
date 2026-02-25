@@ -14,6 +14,7 @@ import {
 import { DownloadsService } from './downloads.service';
 import { CreateDownloadDto } from './dto/create-download.dto';
 import { DeleteDownloadResponseDto } from './dto/delete-download-response.dto';
+import { DownloadResponseDto, serializeDownload } from './dto/download-response.dto';
 import { FastifyReply } from 'fastify';
 import * as fs from 'fs';
 import {
@@ -24,7 +25,7 @@ import {
   ApiParam,
   ApiQuery,
 } from '@nestjs/swagger';
-import { interval, map, Observable, switchMap } from 'rxjs';
+import { interval, Observable, switchMap } from 'rxjs';
 import { ResponseMessage } from '../common/decorators/response-message.decorator';
 import { ApiResponseDto } from '../common/dto/api-response.dto';
 
@@ -33,177 +34,172 @@ import { ApiResponseDto } from '../common/dto/api-response.dto';
 export class DownloadsController {
   constructor(private readonly downloadsService: DownloadsService) {}
 
+  // ── Create ─────────────────────────────────────────────────────────────────
+
   @Post('downloads')
   @ResponseMessage('Download started successfully')
-  @ApiOperation({
-    summary: 'Start a new video download',
-    description:
-      'Start downloading a video from the provided URL. Supports MP4 and M3U8 formats.',
-  })
-  @ApiBody({ type: CreateDownloadDto, description: 'Video download request body' })
-  @ApiResponse({ status: 201, description: 'Download started successfully.', type: ApiResponseDto })
-  @ApiResponse({ status: 400, description: 'Bad request - Invalid URL or parameters' })
-  create(@Body() createDownloadDto: CreateDownloadDto) {
-    return this.downloadsService.create(createDownloadDto);
+  @ApiOperation({ summary: 'Start a new video download' })
+  @ApiBody({ type: CreateDownloadDto })
+  @ApiResponse({ status: 201, type: ApiResponseDto })
+  @ApiResponse({ status: 400, description: 'Invalid URL or parameters' })
+  async create(@Body() dto: CreateDownloadDto): Promise<DownloadResponseDto> {
+    const download = await this.downloadsService.create(dto);
+    return serializeDownload(download);
   }
+
+  // ── Queue ──────────────────────────────────────────────────────────────────
 
   @Post('downloads/clear-queue')
   @ResponseMessage('Queue cleared successfully')
   @ApiOperation({ summary: 'Clear all jobs from the download queue' })
-  @ApiResponse({ status: 200, description: 'Queue cleared successfully.', type: ApiResponseDto })
+  @ApiResponse({ status: 200, type: ApiResponseDto })
   clearQueue() {
     return this.downloadsService.clearQueue();
   }
 
+  // ── Lists ──────────────────────────────────────────────────────────────────
+
   @Get('downloads/active')
   @ResponseMessage('Active downloads retrieved successfully')
-  @ApiOperation({ summary: 'Get all active downloads with progress' })
-  @ApiResponse({ status: 200, description: 'Return list of active downloads.', type: ApiResponseDto })
-  getActive() {
-    return this.downloadsService.getActiveDownloads();
-  }
-
-  @Get('downloads/history')
-  @ResponseMessage('Download history retrieved successfully')
-  @ApiOperation({ summary: 'Get download history (completed/failed)' })
-  @ApiResponse({ status: 200, description: 'Return download history.', type: ApiResponseDto })
-  getHistory() {
-    return this.downloadsService.getDownloadHistory();
-  }
-
-  @Get('downloads/:id')
-  @ResponseMessage('Download retrieved successfully')
-  @ApiOperation({ summary: 'Get download status' })
-  @ApiResponse({ status: 200, description: 'Return download status.', type: ApiResponseDto })
-  @ApiResponse({ status: 404, description: 'Download not found' })
-  findOne(@Param('id') id: string) {
-    return this.downloadsService.findOne(id);
+  @ApiOperation({ summary: 'Get all active (pending/processing/paused) downloads' })
+  @ApiResponse({ status: 200, type: ApiResponseDto })
+  async getActive(): Promise<DownloadResponseDto[]> {
+    const rows = await this.downloadsService.getActiveDownloads();
+    return rows.map(serializeDownload);
   }
 
   @Get('downloads/paused')
   @ResponseMessage('Paused downloads retrieved successfully')
-  @ApiOperation({
-    summary: 'Get all paused downloads',
-    description: 'Returns all downloads that are in PAUSED state with resume/retry options available.',
-  })
-  @ApiResponse({ status: 200, description: 'Return list of paused downloads.', type: ApiResponseDto })
-  getPausedDownloads() {
-    return this.downloadsService.getPausedDownloads();
+  @ApiOperation({ summary: 'Get all paused downloads' })
+  @ApiResponse({ status: 200, type: ApiResponseDto })
+  async getPausedDownloads(): Promise<DownloadResponseDto[]> {
+    const rows = await this.downloadsService.getPausedDownloads();
+    return rows.map(serializeDownload);
   }
+
+  @Get('downloads/history')
+  @ResponseMessage('Download history retrieved successfully')
+  @ApiOperation({ summary: 'Get completed/failed/cancelled downloads' })
+  @ApiResponse({ status: 200, type: ApiResponseDto })
+  async getHistory(): Promise<DownloadResponseDto[]> {
+    const rows = await this.downloadsService.getDownloadHistory();
+    return rows.map(serializeDownload);
+  }
+
+  // ── Single download ────────────────────────────────────────────────────────
+
+  @Get('downloads/:id')
+  @ResponseMessage('Download retrieved successfully')
+  @ApiOperation({ summary: 'Get a single download by ID' })
+  @ApiParam({ name: 'id', type: 'string' })
+  @ApiResponse({ status: 200, type: ApiResponseDto })
+  @ApiResponse({ status: 404, description: 'Download not found' })
+  async findOne(@Param('id') id: string): Promise<DownloadResponseDto> {
+    const download = await this.downloadsService.findOne(id);
+    return serializeDownload(download);
+  }
+
+  // ── Actions ────────────────────────────────────────────────────────────────
 
   @Post('downloads/:id/pause')
   @HttpCode(HttpStatus.OK)
   @ResponseMessage('Download paused successfully')
-  @ApiOperation({
-    summary: 'Pause a download',
-    description:
-      'Pauses a pending or processing download. Removes it from the queue, marks it as paused in the database, but keeps partial files on disk for resuming later. You can resume or retry a paused download.',
-  })
-  @ApiParam({ name: 'id', description: 'Download ID', type: 'string' })
-  @ApiResponse({ status: 200, description: 'Download paused successfully.', type: ApiResponseDto })
-  @ApiResponse({ status: 400, description: 'Download is already completed, paused, or cancelled' })
+  @ApiOperation({ summary: 'Pause a pending or processing download' })
+  @ApiParam({ name: 'id', type: 'string' })
+  @ApiResponse({ status: 200, type: ApiResponseDto })
+  @ApiResponse({ status: 400 })
   @ApiResponse({ status: 404, description: 'Download not found' })
-  pauseDownload(@Param('id') id: string) {
-    return this.downloadsService.pauseDownload(id);
+  async pauseDownload(@Param('id') id: string): Promise<DownloadResponseDto> {
+    const download = await this.downloadsService.pauseDownload(id);
+    return serializeDownload(download);
   }
 
   @Post('downloads/:id/resume')
   @HttpCode(HttpStatus.OK)
   @ResponseMessage('Download resumed successfully')
-  @ApiOperation({
-    summary: 'Resume a paused download',
-    description:
-      'Resumes a paused download from where it left off. The download will continue from its previous progress.',
-  })
-  @ApiParam({ name: 'id', description: 'Download ID', type: 'string' })
-  @ApiResponse({ status: 200, description: 'Download resumed successfully.', type: ApiResponseDto })
-  @ApiResponse({ status: 400, description: 'Only paused downloads can be resumed' })
+  @ApiOperation({ summary: 'Resume a paused download from its saved progress' })
+  @ApiParam({ name: 'id', type: 'string' })
+  @ApiResponse({ status: 200, type: ApiResponseDto })
+  @ApiResponse({ status: 400 })
   @ApiResponse({ status: 404, description: 'Download not found' })
-  resumeDownload(@Param('id') id: string) {
-    return this.downloadsService.resumeDownload(id);
+  async resumeDownload(@Param('id') id: string): Promise<DownloadResponseDto> {
+    const download = await this.downloadsService.resumeDownload(id);
+    return serializeDownload(download);
   }
 
   @Post('downloads/:id/retry')
   @HttpCode(HttpStatus.OK)
-  @ResponseMessage('Download retried successfully')
-  @ApiOperation({
-    summary: 'Retry a failed, paused, or cancelled download',
-    description:
-      'Retries a download from the beginning. This will delete any partial files and start fresh. Works for failed, paused, or cancelled downloads.',
-  })
-  @ApiParam({ name: 'id', description: 'Download ID', type: 'string' })
-  @ApiResponse({ status: 200, description: 'Download retried successfully.', type: ApiResponseDto })
-  @ApiResponse({ status: 400, description: 'Cannot retry - download must be failed, paused, or cancelled' })
+  @ResponseMessage('Download retrying from the beginning')
+  @ApiOperation({ summary: 'Retry a failed, paused, or cancelled download from scratch' })
+  @ApiParam({ name: 'id', type: 'string' })
+  @ApiResponse({ status: 200, type: ApiResponseDto })
+  @ApiResponse({ status: 400 })
   @ApiResponse({ status: 404, description: 'Download not found' })
-  retryDownload(@Param('id') id: string) {
-    return this.downloadsService.retryDownload(id);
+  async retryDownload(@Param('id') id: string): Promise<DownloadResponseDto> {
+    const download = await this.downloadsService.retryDownload(id);
+    return serializeDownload(download);
   }
 
   @Post('downloads/:id/cancel')
   @HttpCode(HttpStatus.OK)
   @ResponseMessage('Download cancelled successfully')
-  @ApiOperation({
-    summary: 'Cancel a download permanently',
-    description:
-      'Cancels a pending or processing download. Removes it from the queue, marks it as cancelled in the database, and deletes any partial files on disk. Use pause if you want to resume later.',
-  })
-  @ApiParam({ name: 'id', description: 'Download ID', type: 'string' })
-  @ApiResponse({ status: 200, description: 'Download cancelled successfully.', type: ApiResponseDto })
-  @ApiResponse({ status: 400, description: 'Download is already completed or already cancelled' })
+  @ApiOperation({ summary: 'Cancel a download permanently' })
+  @ApiParam({ name: 'id', type: 'string' })
+  @ApiResponse({ status: 200, type: ApiResponseDto })
+  @ApiResponse({ status: 400 })
   @ApiResponse({ status: 404, description: 'Download not found' })
-  cancelDownload(@Param('id') id: string) {
-    return this.downloadsService.cancelDownload(id);
+  async cancelDownload(@Param('id') id: string): Promise<DownloadResponseDto> {
+    const download = await this.downloadsService.cancelDownload(id);
+    return serializeDownload(download);
   }
+
+  // ── Delete ─────────────────────────────────────────────────────────────────
 
   @Delete('downloads/:id')
   @HttpCode(HttpStatus.OK)
   @ResponseMessage('Download deleted successfully')
-  @ApiOperation({
-    summary: 'Delete a download permanently',
-    description:
-      'Permanently deletes a download. Removes from queue, deletes from database, and deletes the file from disk.',
-  })
-  @ApiParam({ name: 'id', description: 'Download ID', type: 'string' })
-  @ApiResponse({ status: 200, description: 'Download deleted successfully.', type: DeleteDownloadResponseDto })
+  @ApiOperation({ summary: 'Permanently delete a download record and its file' })
+  @ApiParam({ name: 'id', type: 'string' })
+  @ApiResponse({ status: 200, type: DeleteDownloadResponseDto })
   @ApiResponse({ status: 404, description: 'Download not found' })
   deleteDownload(@Param('id') id: string) {
     return this.downloadsService.deleteDownload(id);
   }
 
+  // ── SSE progress stream ────────────────────────────────────────────────────
+
   @Sse('downloads/progress')
   @ApiOperation({
-    summary: 'Get live download progress (SSE)',
-    description:
-      'Server-Sent Events endpoint that streams live progress updates for active downloads. Polls every second.',
+    summary: 'Live download progress (SSE)',
+    description: 'Streams progress updates every second for active downloads.',
   })
   @ApiQuery({
     name: 'downloadIds',
     required: false,
-    description: 'Comma-separated list of download IDs to watch (optional, default: all active)',
-    example: 'id1,id2,id3',
+    description: 'Comma-separated download IDs to watch (omit for all active)',
+    example: 'id1,id2',
   })
-  @ApiResponse({
-    status: 200,
-    description: 'SSE stream with download progress updates',
-  })
+  @ApiResponse({ status: 200, description: 'SSE stream' })
   getLiveProgress(@Query('downloadIds') downloadIds?: string): Observable<MessageEvent> {
     const ids = downloadIds ? downloadIds.split(',').map((id) => id.trim()) : null;
 
     return interval(1000).pipe(
       switchMap(async () => {
-        const activeDownloads = await this.downloadsService.getActiveDownloadsWithProgress(ids);
+        const rows = await this.downloadsService.getActiveDownloadsWithProgress(ids);
         return {
           data: {
             timestamp: new Date().toISOString(),
-            downloads: activeDownloads,
+            downloads: rows.map(serializeDownload),
           },
         } as MessageEvent;
       }),
     );
   }
 
+  // ── File serve ─────────────────────────────────────────────────────────────
+
   @Get('files/:filename')
-  @ApiOperation({ summary: 'Serve downloaded file' })
+  @ApiOperation({ summary: 'Stream a downloaded video file' })
   async serveFile(
     @Param('filename') filename: string,
     @Res() res: FastifyReply,

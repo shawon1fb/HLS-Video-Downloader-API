@@ -55,13 +55,7 @@ export class DownloadsService {
 
     if (existing) {
       this.logger.log(`Download already exists for URL: ${url}`);
-      return {
-        id: existing.id,
-        status: existing.status,
-        message: 'Download already exists',
-        url: existing.url,
-        createdAt: existing.createdAt.toISOString(),
-      };
+      return existing;
     }
 
     const format = url.endsWith('.m3u8') ? DownloadFormat.HLS : DownloadFormat.MP4;
@@ -77,13 +71,7 @@ export class DownloadsService {
       JOB_OPTIONS,
     );
 
-    return {
-      id: download.id,
-      status: download.status,
-      message: 'Download started successfully',
-      url: download.url,
-      createdAt: download.createdAt.toISOString(),
-    };
+    return download;
   }
 
   async clearQueue() {
@@ -93,35 +81,25 @@ export class DownloadsService {
   }
 
   async getActiveDownloads() {
-    const activeStatuses = [
-      DownloadStatus.PENDING,
-      DownloadStatus.PROCESSING,
-      DownloadStatus.PAUSED,
-    ];
-
-    const rows = await this.db
+    return this.db
       .select()
       .from(downloads)
-      .where(inArray(downloads.status, activeStatuses))
+      .where(
+        inArray(downloads.status, [
+          DownloadStatus.PENDING,
+          DownloadStatus.PROCESSING,
+          DownloadStatus.PAUSED,
+        ]),
+      )
       .orderBy(desc(downloads.createdAt));
-
-    return rows.map((d) => ({
-      ...d,
-      canPause: d.status === DownloadStatus.PENDING || d.status === DownloadStatus.PROCESSING,
-      canResume: d.status === DownloadStatus.PAUSED,
-      canRetry: d.status === DownloadStatus.PAUSED,
-      canCancel: d.status !== DownloadStatus.CANCELLED,
-    }));
   }
 
   async getPausedDownloads() {
-    const rows = await this.db
+    return this.db
       .select()
       .from(downloads)
       .where(eq(downloads.status, DownloadStatus.PAUSED))
       .orderBy(desc(downloads.createdAt));
-
-    return rows.map((d) => ({ ...d, canResume: true, canRetry: true }));
   }
 
   async getActiveDownloadsWithProgress(downloadIds?: string[] | null) {
@@ -160,10 +138,6 @@ export class DownloadsService {
         ...d,
         queuePosition: job ? jobs.indexOf(job) + 1 : null,
         estimatedTimeRemaining: this.estimateTimeRemaining(d),
-        canPause: d.status === DownloadStatus.PENDING || d.status === DownloadStatus.PROCESSING,
-        canResume: d.status === DownloadStatus.PAUSED,
-        canRetry: d.status === DownloadStatus.PAUSED,
-        canCancel: d.status !== DownloadStatus.CANCELLED,
       };
     });
   }
@@ -225,15 +199,7 @@ export class DownloadsService {
     // Remove from queue only if waiting (active jobs can't be force-removed by BullMQ design)
     await this.tryRemoveFromQueue(id, ['waiting', 'delayed']);
 
-    return {
-      ...paused,
-      message:
-        download.status === DownloadStatus.PROCESSING
-          ? 'Download is being paused and will stop within 2 seconds.'
-          : 'Download paused successfully.',
-      canResume: true,
-      canRetry: true,
-    };
+    return paused;
   }
 
   /**
@@ -270,11 +236,7 @@ export class DownloadsService {
 
     this.logger.log(`Download ${id} re-queued, resuming from ${download.progress}%`);
 
-    return {
-      ...resumed,
-      status: DownloadStatus.PENDING,
-      message: `Download resumed from ${download.progress}%`,
-    };
+    return resumed;
   }
 
   /**
@@ -324,11 +286,7 @@ export class DownloadsService {
 
     this.logger.log(`Download ${id} retrying from scratch`);
 
-    return {
-      ...retried,
-      status: DownloadStatus.PENDING,
-      message: 'Download retrying from the beginning',
-    };
+    return retried;
   }
 
   /**
@@ -370,11 +328,7 @@ export class DownloadsService {
       this.tryDeleteFile(download.filePath, `cancel ${id}`);
     }
 
-    return {
-      ...cancelled,
-      message: 'Download cancelled successfully',
-      canRetry: true,
-    };
+    return cancelled;
   }
 
   async deleteDownload(id: string) {
