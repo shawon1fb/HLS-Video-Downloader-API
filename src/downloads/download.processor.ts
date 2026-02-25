@@ -12,7 +12,7 @@ import { downloads, DownloadStatus, DownloadFormat } from '../database/schema/do
 import { eq } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 
-@Processor('downloads')
+@Processor('downloads', { concurrency: 5 })
 export class DownloadProcessor extends WorkerHost {
   private readonly logger = new Logger(DownloadProcessor.name);
   private readonly DOWNLOAD_DIR = path.resolve(__dirname, '../../downloads');
